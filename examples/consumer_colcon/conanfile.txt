@@ -1,0 +1,11 @@
+[requires]
+ros-kilted/0.1.0
+
+[generators]
+CMakeToolchain
+CMakeDeps
+VCVars
+ROSEnv
+
+[layout]
+cmake_layout

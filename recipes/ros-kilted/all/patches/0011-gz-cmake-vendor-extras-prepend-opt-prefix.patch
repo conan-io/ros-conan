@@ -1,0 +1,6 @@
+--- src/gazebo-release/gz_cmake_vendor/gz_cmake_vendor-extras.cmake.in
++++ src/gazebo-release/gz_cmake_vendor/gz_cmake_vendor-extras.cmake.in
+@@ -1 +1,3 @@
+ list(PREPEND CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/@PROJECT_NAME@/extra_cmake")
++# Also expose gz-cmake4's versioned config under opt/<vendor>/share/cmake/gz-cmake4.
++list(PREPEND CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/@PROJECT_NAME@")

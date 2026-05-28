@@ -1,0 +1,34 @@
+diff --git a/python_orocos_kdl/CMakeLists.txt b/python_orocos_kdl/CMakeLists.txt
+index 5727483..5a1ddf8 100644
+--- a/python_orocos_kdl/CMakeLists.txt
++++ b/python_orocos_kdl/CMakeLists.txt
+@@ -27,8 +27,20 @@ project(python_orocos_kdl VERSION 1.5.1)
+ 
+ # find a matching version of orocos_kdl
+ find_package(orocos_kdl ${PROJECT_VERSION} EXACT REQUIRED)
+-include_directories(${orocos_kdl_INCLUDE_DIRS})
+-link_directories(${orocos_kdl_LIBRARY_DIRS})
++# Conan: imported KDL target plus explicit Eigen/Boost (CMakeDeps lists only direct requires).
++if(TARGET orocos_kdl::orocos-kdl)
++  set(_PYKDL_OROCOS_KDL_TARGET orocos_kdl::orocos-kdl)
++elseif(TARGET orocos-kdl::orocos-kdl)
++  set(_PYKDL_OROCOS_KDL_TARGET orocos-kdl::orocos-kdl)
++elseif(TARGET orocos-kdl)
++  set(_PYKDL_OROCOS_KDL_TARGET orocos-kdl)
++else()
++  include_directories(${orocos_kdl_INCLUDE_DIRS})
++  link_directories(${orocos_kdl_LIBRARY_DIRS})
++  set(_PYKDL_OROCOS_KDL_TARGET ${orocos_kdl_LIBRARIES})
++endif()
++find_package(Eigen3 REQUIRED CONFIG)
++find_package(boost REQUIRED CONFIG)
+ 
+ set(PYBIND11_PYTHON_VERSION 3 CACHE STRING "Python version used by PyBind11")
+ 
+@@ -64,5 +76,5 @@ pybind11_add_module(${LIBRARY_NAME}
+   PyKDL/kinfam.cpp
+   PyKDL/framevel.cpp
+   PyKDL/dynamics.cpp)
+-target_link_libraries(${LIBRARY_NAME} PRIVATE ${orocos_kdl_LIBRARIES})
++target_link_libraries(${LIBRARY_NAME} PRIVATE ${_PYKDL_OROCOS_KDL_TARGET} Eigen3::Eigen boost::boost)
+ install(TARGETS ${LIBRARY_NAME} DESTINATION "${PYTHON_SITE_PACKAGES_INSTALL_DIR}")

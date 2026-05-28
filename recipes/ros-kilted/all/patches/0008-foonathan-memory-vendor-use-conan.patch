@@ -1,0 +1,26 @@
+--- src/eProsima/foonathan_memory_vendor/CMakeLists.txt
++++ src/eProsima/foonathan_memory_vendor/CMakeLists.txt
+@@ -5,16 +5,13 @@ option(FOONATHAN_MEMORY_FORCE_VENDORED_BUILD
+         "Force foonathan memory vendor package build even if it is already installed in the system" OFF)
+
+ if(NOT FOONATHAN_MEMORY_FORCE_VENDORED_BUILD)
+-  execute_process(COMMAND
+-      ${CMAKE_COMMAND}
+-      --find-package
+-      -DNAME=foonathan_memory
+-      -DCOMPILER_ID=$<IF:$<BOOL:${WIN32}>,MSVC,GNU>
+-      -DLANGUAGE=CXX
+-      -DMODE=EXIST
+-      -DCMAKE_FIND_DEBUG_MODE=ON
+-    ERROR_QUIET
+-    RESULT_VARIABLE _EXIT_CODE)
++  # Conan provides foonathan_memory; use find_package which honours
++  # CMAKE_PREFIX_PATH from the toolchain. The upstream `cmake --find-package`
++  # subprocess does not inherit it and always fell back to ExternalProject.
++  find_package(foonathan_memory CONFIG QUIET)
++  if(foonathan_memory_FOUND)
++    set(_EXIT_CODE 0)
++  endif()
+ endif()
+
+ if(NOT _EXIT_CODE EQUAL 0)

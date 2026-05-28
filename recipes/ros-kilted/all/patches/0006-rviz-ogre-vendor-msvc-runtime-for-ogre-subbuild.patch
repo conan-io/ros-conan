@@ -1,0 +1,19 @@
+diff --git a/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt b/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt
+--- a/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt
++++ b/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt
+@@ -50,6 +50,15 @@ if(WIN32 AND CMAKE_TOOLCHAIN_FILE)
+   list(APPEND OGRE_CMAKE_ARGS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+ endif()
+ 
++if(WIN32 AND MSVC AND CMAKE_TOOLCHAIN_FILE)
++  list(APPEND OGRE_CMAKE_ARGS "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW")
++  if(CMAKE_MSVC_RUNTIME_LIBRARY)
++    list(APPEND OGRE_CMAKE_ARGS "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
++  else()
++    list(APPEND OGRE_CMAKE_ARGS "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL")
++  endif()
++endif()
++
+ 
+ ament_vendor(ogre_vendor
+   VCS_URL https://github.com/OGRECave/ogre.git

@@ -1,0 +1,14 @@
+[settings]
+arch=armv8
+build_type=Release
+compiler=apple-clang
+compiler.cppstd=gnu17
+compiler.libcxx=libc++
+compiler.version=21
+os=Macos
+
+[options]
+ros-kilted/*:variant=desktop
+
+[tool_requires]
+*: cmake/3.29.3

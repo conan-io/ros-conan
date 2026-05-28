@@ -1,0 +1,27 @@
+--- src/ros2/rosidl_python/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake
++++ src/ros2/rosidl_python/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake
+@@ -232,7 +232,24 @@ foreach(_typesupport_impl ${_typesupport_impls})
+   add_dependencies(${_target_name}
+     ${rosidl_generate_interfaces_TARGET}__${_typesupport_impl}
+   )
+ 
++  if(WIN32 AND MSVC)
++    # ros-kilted: MSVC py _pyobj dir for /Fo - long VS IntDir under Conan cache hits MAX_PATH
++    # Apply after all target_link_libraries so INTERFACE flags (e.g. introspection) cannot
++    # override this. string(SHA1 <out-var> <input>) order matters.
++    # Omit /Fd: long /Fo+/Fd with introspection's include graph can yield C1083 '' on cl.
++    # Bind /Fo to the generated .c via SOURCE COMPILE_OPTIONS so vcxproj ClCompile stays well-formed.
++    set(_rosidl_py_objdir "${CMAKE_CURRENT_BINARY_DIR}/_pyobj")
++    file(MAKE_DIRECTORY "${_rosidl_py_objdir}")
++    string(SHA1 _rosidl_py_obj_h "${_target_name}")
++    string(SUBSTRING "${_rosidl_py_obj_h}" 0 16 _rosidl_py_obj_h16)
++    set(_rosidl_py_objfile "${_rosidl_py_objdir}/o_${_rosidl_py_obj_h16}.obj")
++    file(TO_CMAKE_PATH "${_rosidl_py_objfile}" _rosidl_py_obj_fo)
++    set_source_files_properties(
++      ${_generated_extension_${_typesupport_impl}_files}
++      PROPERTIES COMPILE_OPTIONS "/Fo${_rosidl_py_obj_fo}")
++  endif()
++
+   if(NOT rosidl_generate_interfaces_SKIP_INSTALL)
+     # PYTHON_INSTALL_DIR is defined by ament_cmake_python
+     install(TARGETS ${_target_name}

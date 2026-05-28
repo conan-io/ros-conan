@@ -1,0 +1,15 @@
+sources:
+  "1.5.1":
+    url: "https://github.com/orocos/orocos_kinematics_dynamics/archive/ce4bcb65a050615b6d7f21bc60fbb2656515791b.zip"
+    sha256: "ddeddbfccb53e0ff2811e67ebe59f1d5bf32904171d4ae23640c7d6b1b4917dd"
+
+patches:
+  "1.5.1":
+    - patch_file: patches/0001-use-python3.patch
+      patch_description: Align PyKDL CMake with python_orocos_kdl_vendor (Python3, policies, site-packages path)
+    - patch_file: patches/0002-conan-pykdl-cmake.patch
+      patch_description: Link PyKDL against Conan orocos_kdl + Eigen3 + boost targets (CMakeDeps direct requires)
+    - patch_file: patches/0003-pykdl-drop-hash-msvc.patch
+      patch_description: Drop pybind11 hash bindings (KDL snapshot lacks std::hash; MSVC fails template deduction)
+    - patch_file: patches/0004-cmake-python3-site-version.patch
+      patch_description: Use Python3_VERSION_* for site-packages path (FindPython3 variables)

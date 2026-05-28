@@ -1,0 +1,37 @@
+sources:
+  "0.1.0":
+    url: "https://raw.githubusercontent.com/ros2/ros2/kilted/ros2.repos"
+    sha256: "7e362e761e334250c8e3a278397e634bdcf3d235c39b655a74ff174ab6215525"
+    # ros2/variants metapackages (not in ros2.repos). Bump in lockstep with the snapshot above.
+    variants:
+      url: "https://github.com/ros2/variants/archive/e358bccb2edde3b681e898bf7fa8e157634f6e50.tar.gz"
+      sha256: "679737de544e9304d96779d95d60f29a8514d9a35987747b8a8e7296cd7a01be"
+
+patches:
+  "0.1.0":
+    - patch_file: patches/0001-google-benchmark-vendor-conan-shared-benchmark.patch
+      patch_description: google_benchmark_vendor - shared lib check on benchmark::benchmark (Conan)
+    - patch_file: patches/0002-rosidl-generator-py-msvc-short-object-dir.patch
+      patch_description: rosidl_generator_py - MSVC /Fo short dir (MAX_PATH on .obj under VS generator)
+    - patch_file: patches/0003-rviz-ogre-vendor-ogre-lod-cpp17.patch
+      patch_description: rviz_ogre_vendor - OGRE 1.12.10 C++17 LOD patch + Assimp fix::assimp uses assimp::assimp (Conan headers for Codec_Assimp)
+    - patch_file: patches/0004-rviz-ogre-vendor-conan-zlib-freetype-windows.patch
+      patch_description: rviz_ogre_vendor - Windows use find_package ZLIB/Freetype (Conan); forward toolchain to OGRE ExternalProject
+    - patch_file: patches/0005-orocos-kdl-vendor-conan-and-boost.patch
+      patch_description: orocos_kdl_vendor - prefer CMakeDeps orocos_kdl from ros2_ws/conan; prepend conan to CMAKE_PREFIX_PATH and INTERFACE-link Boost for KDL headers (CMakeDeps)
+    - patch_file: patches/0006-rviz-ogre-vendor-msvc-runtime-for-ogre-subbuild.patch
+      patch_description: rviz_ogre_vendor - forward CMP0091 and CMAKE_MSVC_RUNTIME_LIBRARY into OGRE ExternalProject (Codec_Assimp LNK2038)
+    - patch_file: patches/0007-python-orocos-kdl-vendor-conan-and-apple.patch
+      patch_description: python_orocos_kdl_vendor - prefer Conan python_orocos_kdl CMake package; strip py::hash(py::self) on Apple when building PyKDL from FetchContent
+    - patch_file: patches/0008-foonathan-memory-vendor-use-conan.patch
+      patch_description: foonathan_memory_vendor - use find_package(foonathan_memory) so Conan's package is picked up (upstream subprocess check ignores CMAKE_PREFIX_PATH)
+    - patch_file: patches/0009-mcap-vendor-use-conan.patch
+      patch_description: mcap_vendor - replace FetchContent of foxglove/mcap with find_package(mcap) (CCI mcap)
+    - patch_file: patches/0010-rviz-ogre-vendor-extras-conan-zlib-windows.patch
+      patch_description: rviz_ogre_vendor-extras - drop unused FREETYPE_HOME/ZLIB_HOME; freetype via CONFIG (no vendored freetype_DIR); Freetype::Freetype + ZLIB::ZLIB for Conan
+    - patch_file: patches/0011-gz-cmake-vendor-extras-prepend-opt-prefix.patch
+      patch_description: gz_cmake_vendor - prepend <install>/opt/gz_cmake_vendor in extras so downstream vendor ExternalProject configs can resolve find_package(gz-cmake4) on Windows
+    - patch_file: patches/0012-gz-utils-vendor-extras-prepend-opt-prefix.patch
+      patch_description: gz_utils_vendor - prepend <install>/opt/gz_utils_vendor in extras so downstream vendor ExternalProject configs can resolve find_package(gz-utils3) on Windows
+    - patch_file: patches/0013-gz-math-vendor-extras-prepend-opt-prefix.patch
+      patch_description: gz_math_vendor - prepend <install>/opt/gz_math_vendor in extras so downstream vendor ExternalProject configs can resolve find_package(gz-math8) on Windows

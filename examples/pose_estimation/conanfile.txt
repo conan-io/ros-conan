@@ -1,0 +1,16 @@
+[requires]
+ros-kilted/0.1.0
+tensorflow-lite/2.12.0
+opencv/4.9.0
+
+[options]
+ros-kilted/0.1.0:variant=desktop
+opencv/*:with_ffmpeg=False
+
+[generators]
+CMakeDeps
+CMakeToolchain
+VCVars
+
+[layout]
+cmake_layout

@@ -1,0 +1,40 @@
+OGRE 1.12.10 reads the macOS SDK path via:
+
+  execute_process(COMMAND xcodebuild -version -sdk macosx Path | head -n 1 ...)
+
+CMake's execute_process does not interpret shell pipes — it passes "| head
+-n 1" as additional positional arguments to xcodebuild. On Xcode 26 (macOS
+26 SDK) xcodebuild rejects the resulting `-n 1` because the `-n` flag was
+removed, prints a multi-line usage banner full of unbalanced quotes, and
+that banner ends up in CMAKE_OSX_SYSROOT, breaking every compile command
+with /bin/sh syntax errors.
+
+The naive replacement `set(CMAKE_OSX_SYSROOT macosx)` is rejected by clang
+when CMake's Unix Makefiles generator is in use because it does not resolve
+the short SDK name to a real path (only the Xcode generator does that),
+leaving clang with a literal `-isysroot macosx` and a missing Availability.h.
+
+Use xcrun's --show-sdk-path directly: no pipe required, returns one line,
+no need for `head` post-processing, and works on every Xcode version
+(including 26+).
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -271,12 +271,11 @@ elseif (EMSCRIPTEN)
+ elseif (APPLE AND NOT APPLE_IOS)
+ 
+   set(XCODE_ATTRIBUTE_SDKROOT macosx)
+-  if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+-    execute_process(COMMAND xcodebuild -version -sdk "${XCODE_ATTRIBUTE_SDKROOT}" Path | head -n 1 OUTPUT_VARIABLE CMAKE_OSX_SYSROOT)
+-    string(REGEX REPLACE "(\r?\n)+$" "" CMAKE_OSX_SYSROOT "${CMAKE_OSX_SYSROOT}")
+-  else()
+-    set(CMAKE_OSX_SYSROOT macosx)
+-  endif()
++  execute_process(
++    COMMAND xcrun --sdk "${XCODE_ATTRIBUTE_SDKROOT}" --show-sdk-path
++    OUTPUT_VARIABLE CMAKE_OSX_SYSROOT
++    OUTPUT_STRIP_TRAILING_WHITESPACE
++  )
+ 
+   # Make sure that the OpenGL render system is selected for non-iOS Apple builds
+   set(OGRE_BUILD_RENDERSYSTEM_GLES2 FALSE)

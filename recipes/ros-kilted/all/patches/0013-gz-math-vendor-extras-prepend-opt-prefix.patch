@@ -1,0 +1,6 @@
+--- src/gazebo-release/gz_math_vendor/gz_math_vendor-extras.cmake.in
++++ src/gazebo-release/gz_math_vendor/gz_math_vendor-extras.cmake.in
+@@ -1 +1,3 @@
+ list(PREPEND CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/@PROJECT_NAME@/extra_cmake")
++# Also expose gz-math8's versioned config under opt/<vendor>/lib/cmake/gz-math8.
++list(PREPEND CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/@PROJECT_NAME@")

@@ -1,0 +1,56 @@
+--- a/src/ros2/rviz/rviz_ogre_vendor/rviz_ogre_vendor-extras.cmake.in
++++ b/src/ros2/rviz/rviz_ogre_vendor/rviz_ogre_vendor-extras.cmake.in
+@@ -11,9 +11,6 @@
+ endif()
+ message(STATUS "Setting OGRE_DIR to: '${OGRE_DIR}'")
+ 
+-set(FREETYPE_HOME "${rviz_ogre_vendor_DIR}/../../../opt/rviz_ogre_vendor")
+-set(ZLIB_HOME "${rviz_ogre_vendor_DIR}/../../../opt/rviz_ogre_vendor")
+-
+ find_package(OGRE REQUIRED NO_SYSTEM_ENVIRONMENT_PATH)
+ message(STATUS "OGRE_LIBRARIES: ${OGRE_LIBRARIES}")
+ message(STATUS "OGRE_LIBRARY_DIRS: ${OGRE_LIBRARY_DIRS}")
+@@ -89,34 +86,26 @@
+ 
+     find_package(Freetype QUIET)
+     if(NOT Freetype_FOUND)
+-      # try newer method with exported targets
+-      set(freetype_DIR
+-        "${rviz_ogre_vendor_DIR}/../../../opt/rviz_ogre_vendor/lib/cmake/freetype")
+-      find_package(freetype CONFIG REQUIRED)
++      find_package(freetype CONFIG QUIET)
+     endif()
+-    if(FREETYPE_LIBRARIES)
++    if(TARGET Freetype::Freetype)
++      list(APPEND _extra_interface_link_libraries Freetype::Freetype)
++    elseif(FREETYPE_LIBRARIES)
+       list(APPEND _extra_interface_link_libraries ${FREETYPE_LIBRARIES})
+     elseif(TARGET freetype)
+-      # newer versions of freetype provide exported cmake targets
+       list(APPEND _extra_interface_link_libraries freetype)
+     else()
+       message(FATAL_ERROR "Could not find freetype package")
+     endif()
+ 
+-    if(WIN32)
+-      if(_ogre_main_static_library_debug_abs)
+-        set(ZLIB_LIBRARIES "${ZLIB_HOME}/lib/zlibstaticd.lib")
+-      else()
+-        set(ZLIB_LIBRARIES "${ZLIB_HOME}/lib/zlibstatic.lib")
+-      endif()
++    find_package(ZLIB REQUIRED)
++    if(TARGET ZLIB::ZLIB)
++      list(APPEND _extra_interface_link_libraries ZLIB::ZLIB)
++    elseif(ZLIB_LIBRARIES)
++      list(APPEND _extra_interface_link_libraries ${ZLIB_LIBRARIES})
+     else()
+-      find_package(ZLIB REQUIRED)
+-    endif()
+-
+-    if(NOT ZLIB_LIBRARIES)
+       message(FATAL_ERROR "Could not find zlib library")
+     endif()
+-    list(APPEND _extra_interface_link_libraries ${ZLIB_LIBRARIES})
+ 
+     if (POLICY CMP0072)
+       cmake_policy(SET CMP0072 NEW)

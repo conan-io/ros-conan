@@ -1,0 +1,33 @@
+--- src/ros2/rosbag2/mcap_vendor/CMakeLists.txt
++++ src/ros2/rosbag2/mcap_vendor/CMakeLists.txt
+@@ -32,24 +32,15 @@ endif()
+
+ ## Define vendor macro
+ macro(build_mcap_vendor)
+-  include(FetchContent)
+-  fetchcontent_declare(mcap
+-    URL https://github.com/foxglove/mcap/archive/refs/tags/releases/cpp/v1.4.2.tar.gz
+-    URL_HASH SHA1=d32cf3c807a52da302d31d2739b7762032e2f8ee # v1.4.2
+-  )
+-  fetchcontent_makeavailable(mcap)
+-
+-  file(GLOB PATCHES
+-    "${CMAKE_CURRENT_SOURCE_DIR}/patches/*.patch"
+-  )
+-
+-  foreach(PATCH ${PATCHES})
+-    execute_process(COMMAND git apply --whitespace=nowarn -p1 ${PATCH})
+-  endforeach()
++  # mcap headers come from Conan; the vendor still wraps them in a compiled
++  # shared library so downstream rosbag2_storage_mcap can link against it.
++  find_package(mcap REQUIRED)
+
+   add_library(mcap SHARED
+     src/main.cpp
+   )
+
+-  set(_mcap_include_dir ${mcap_SOURCE_DIR}/cpp/mcap/include)
++  # CMakeDeps sets INTERFACE_INCLUDE_DIRECTORIES on mcap::mcap as a generator
++  # expression (per-config), which file(GLOB) cannot expand. Use the flat var.
++  set(_mcap_include_dir ${mcap_INCLUDE_DIRS})
+   file(GLOB _mcap_installed_headers ${_mcap_include_dir}/mcap/*.hpp)

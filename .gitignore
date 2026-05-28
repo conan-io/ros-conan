@@ -1,0 +1,75 @@
+# Project-local Conan cache (when CONAN_HOME / layout uses the repo)
+.conan2/
+
+# --- ROS 2 colcon workspace (ros2_ws) ---
+recipes/ros-kilted/all/ros2_ws/*
+
+# test_package smoke workspace (colcon build --merge-install)
+test_package/minimal_ws/build/
+test_package/minimal_ws/install/
+test_package/minimal_ws/log/
+
+# --- Conan recipe development (local `conan create` / `conan install`) ---
+**/conan_pyenv/
+# VirtualBuildEnv / VirtualRunEnv scripts next to conanfile or under generators/
+recipes/**/conan_pyenv*
+recipes/**/conanbuildenv*
+recipes/**/conanrunenv*
+recipes/**/deactivate_conanbuildenv*
+recipes/**/deactivate_conanrunenv*
+recipes/**/conanbuild.bat
+recipes/**/conanrun.bat
+recipes/**/conanbuild.sh
+recipes/**/conanrun.sh
+recipes/**/deactivate_conanbuild.bat
+recipes/**/deactivate_conanrun.bat
+recipes/**/deactivate_conanbuild.sh
+recipes/**/deactivate_conanrun.sh
+recipes/**/test_package/build/
+recipes/**/test_package/**/generators/
+CMakeUserPresets.json
+ConanPresets.json
+
+# --- Examples (ci-commands.sh: conan install / conan build / colcon / CMake presets) ---
+examples/**/build/
+examples/**/install/
+examples/**/log/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+/dist/
+/build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.python-version
+
+# --- Editors / IDEs ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Visual Studio / MSVC ---
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+x64/
+x86/
+[Dd]ebug/
+[Rr]elease/
+*.VC.db
+*.VC.VC.opendb
+
+# --- Windows ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini

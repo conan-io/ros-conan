@@ -1,0 +1,52 @@
+--- src/ros2/orocos_kdl_vendor/python_orocos_kdl_vendor/CMakeLists.txt
++++ src/ros2/orocos_kdl_vendor/python_orocos_kdl_vendor/CMakeLists.txt
+@@ -29,15 +29,22 @@ cmake_policy(SET CMP0094 NEW)
+ set(Python3_FIND_UNVERSIONED_NAMES FIRST)
+ 
+ if(NOT FORCE_BUILD_VENDOR_PKG)
+-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+-  execute_process(
+-    COMMAND ${Python3_EXECUTABLE} -c "import PyKDL"
+-    RESULT_VARIABLE pykdl_import_exit_code
+-    OUTPUT_QUIET
+-    ERROR_QUIET
+-  )
+-  if(pykdl_import_exit_code EQUAL 0)
++  # Prefer Conan/CMake-discovered PyKDL when available.
++  find_package(python_orocos_kdl CONFIG QUIET)
++  if(python_orocos_kdl_FOUND)
++    message(STATUS "Found python_orocos_kdl CMake package, skipping source build")
+     set(pykdl_FOUND 1)
++  else()
++    find_package(Python3 REQUIRED COMPONENTS Interpreter)
++    execute_process(
++      COMMAND ${Python3_EXECUTABLE} -c "import PyKDL"
++      RESULT_VARIABLE pykdl_import_exit_code
++      OUTPUT_QUIET
++      ERROR_QUIET
++    )
++    if(pykdl_import_exit_code EQUAL 0)
++      set(pykdl_FOUND 1)
++    endif()
+   endif()
+ endif()
+ 
+@@ -56,6 +63,18 @@ macro(build_pykdl)
+   )
+ 
+   fetchcontent_makeavailable(python_orocos_kdl)
++
++  if(APPLE)
++    # libc++ on Xcode 16+ deletes std::hash<T>'s default ctor for unspecialized types.
++    # orocos_kdl/1.5.1 (Conan) headers lack std::hash specializations for KDL types,
++    # so PyKDL's `def(py::hash(py::self))` fails to compile. Strip those lines.
++    foreach(_pykdl_src "frames.cpp" "framevel.cpp")
++      file(READ "${python_orocos_kdl_SOURCE_DIR}/python_orocos_kdl/PyKDL/${_pykdl_src}" _pykdl_content)
++      string(REGEX REPLACE "[^\n]*\\.def\\(py::hash\\(py::self\\)\\)[^\n]*\n" "" _pykdl_content "${_pykdl_content}")
++      file(WRITE "${python_orocos_kdl_SOURCE_DIR}/python_orocos_kdl/PyKDL/${_pykdl_src}" "${_pykdl_content}")
++    endforeach()
++  endif()
++
+   add_subdirectory(
+     "${python_orocos_kdl_SOURCE_DIR}/python_orocos_kdl"
+     ${python_orocos_kdl_BINARY_DIR})

@@ -1,0 +1,105 @@
+name: Conan create ros-kilted
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  conan-create:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            profile: profiles/windows-msvc
+            conan_home: C:/.c2
+          - runner: macos-latest
+            profile: profiles/macos-clang
+            conan_home: /tmp/conan-ci
+
+    runs-on: ${{ matrix.runner }}
+    env:
+      CONAN_HOME: ${{ matrix.conan_home }}
+      ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+      CONAN_LOGIN_USERNAME: ${{ secrets.ARTIFACTORY_USER }}
+      CONAN_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+
+    steps:
+      - name: Enable long paths for git
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare Conan home
+        shell: bash
+        run: mkdir -p "$CONAN_HOME"
+
+      - name: Install CMake
+        uses: jwlawson/actions-setup-cmake@v2.2
+        with:
+          cmake-version: "3.31.0"
+
+      - name: Set up Python
+        id: setup_python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          update-environment: false
+
+      - name: Prepend Python to System PATH
+        shell: bash
+        run: echo "$(dirname '${{ steps.setup_python.outputs.python-path }}')" >> "$GITHUB_PATH"
+
+      - name: Install latest Conan
+        run: |
+          python -m pip install --upgrade pip
+          pip install conan
+          conan --version
+
+      - name: Detect Conan profile
+        run: conan profile detect --force
+
+      - name: Add local recipes index
+        working-directory: ${{ github.workspace }}
+        run: conan remote add conan-ros-index . --type=local-recipes-index
+
+      - name: Add Artifactory Conan remote
+        shell: bash
+        run: |
+          conan remote add conan-ros "$ARTIFACTORY_URL"
+          conan remote login conan-ros
+
+      - name: Build ros-kilted dependencies
+        working-directory: ${{ github.workspace }}
+        run: >
+          conan install recipes/ros-kilted/all --version=0.1.0
+          --build=missing
+          --profile:host=${{ matrix.profile }}
+          --format=json --out-file=install_graph.json
+
+      # Only binaries built from source in the install above (binary=Build), not
+      # Cache/Download hits pulled from ConanCenter or other remotes.
+      - name: Upload built dependencies to Artifactory
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
+          if python -c "import json,sys; d=json.load(open('upload_pkglist.json')); sys.exit(0 if d.get('Local Cache') else 1)"; then
+            conan upload --list=upload_pkglist.json -r conan-ros -c
+          fi
+
+      - name: Conan create
+        working-directory: ${{ github.workspace }}
+        run: conan create recipes/ros-kilted/all --version=0.1.0  --profile=${{ matrix.profile }}
+
+      - name: Find and run examples
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"

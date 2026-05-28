@@ -1,0 +1,63 @@
+diff --git a/src/ros2/rviz/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch b/src/ros2/rviz/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch
+new file mode 100644
+--- /dev/null
++++ b/src/ros2/rviz/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch
+@@ -0,0 +1,33 @@
++diff --git a/OgreMain/src/OgreLodStrategy.cpp b/OgreMain/src/OgreLodStrategy.cpp
++--- a/OgreMain/src/OgreLodStrategy.cpp
+++++ b/OgreMain/src/OgreLodStrategy.cpp
++@@ -85,27 +85,25 @@ namespace Ogre {
++         return true;
++     }
++     //---------------------------------------------------------------------
++-    struct LodUsageSortLess :
++-    public std::binary_function<const MeshLodUsage&, const MeshLodUsage&, bool>
+++    struct LodUsageSortLess
++     {
++         bool operator() (const MeshLodUsage& mesh1, const MeshLodUsage& mesh2)
++         {
++             // Sort ascending
++             return mesh1.value < mesh2.value;
++         }
++     };
++     void LodStrategy::sortAscending(Mesh::MeshLodUsageList& meshLodUsageList)
++     {
++         // Perform standard sort
++         std::sort(meshLodUsageList.begin(), meshLodUsageList.end(), LodUsageSortLess());
++     }
++     //---------------------------------------------------------------------
++-    struct LodUsageSortGreater :
++-    public std::binary_function<const MeshLodUsage&, const MeshLodUsage&, bool>
+++    struct LodUsageSortGreater
++     {
++         bool operator() (const MeshLodUsage& mesh1, const MeshLodUsage& mesh2)
++         {
++             // Sort descending
++             return mesh1.value > mesh2.value;
++         }
++     };
+diff --git a/src/ros2/rviz/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch b/src/ros2/rviz/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch
+new file mode 100644
+--- /dev/null
++++ b/src/ros2/rviz/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch
+@@ -0,0 +1,20 @@
++diff --git a/CMake/Dependencies.cmake b/CMake/Dependencies.cmake
++--- a/CMake/Dependencies.cmake
+++++ b/CMake/Dependencies.cmake
++@@ -318,11 +318,15 @@
++ if(ASSIMP_FOUND)
++   # workaround horribly broken assimp cmake
++   add_library(fix::assimp INTERFACE IMPORTED)
+++  if(TARGET assimp::assimp)
+++    set_target_properties(fix::assimp PROPERTIES INTERFACE_LINK_LIBRARIES assimp::assimp)
+++  else()
++   set_target_properties(fix::assimp PROPERTIES
++       INTERFACE_LINK_LIBRARIES "${ASSIMP_LIBRARIES}"
++       INTERFACE_LINK_DIRECTORIES "${ASSIMP_LIBRARY_DIRS}"
++   )
++-  if(EXISTS "${ASSIMP_INCLUDE_DIRS}")
+++    if(ASSIMP_INCLUDE_DIRS)
++     set_target_properties(fix::assimp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ASSIMP_INCLUDE_DIRS}")
++   endif()
+++  endif()
++ endif()

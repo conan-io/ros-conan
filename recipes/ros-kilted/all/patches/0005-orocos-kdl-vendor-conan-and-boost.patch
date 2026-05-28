@@ -1,0 +1,87 @@
+--- src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/CMakeLists.txt
++++ src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/CMakeLists.txt
+@@ -5,7 +5,21 @@ find_package(ament_cmake REQUIRED)
+ find_package(ament_cmake_vendor_package REQUIRED)
+ 
+ # Set minimum version to find matching what would be built because PyKDL vendor will require it
+-find_package(orocos_kdl 1.5.1 QUIET)
++set(_orocos_kdl_conan_hint "")
++foreach(_orocos_kdl_hint IN ITEMS
++    "${CMAKE_CURRENT_SOURCE_DIR}/../../../conan"
++    "${CMAKE_BINARY_DIR}/../../conan")
++  if(IS_DIRECTORY "${_orocos_kdl_hint}")
++    set(_orocos_kdl_conan_hint "${_orocos_kdl_hint}")
++    break()
++  endif()
++endforeach()
++if(_orocos_kdl_conan_hint)
++  find_package(orocos_kdl 1.5.1 QUIET CONFIG PATHS "${_orocos_kdl_conan_hint}" NO_DEFAULT_PATH)
++endif()
++if(NOT orocos_kdl_FOUND)
++  find_package(orocos_kdl 1.5.1 QUIET)
++endif()
+ 
+ if(NOT CMAKE_CXX_STANDARD)
+   # orocos_kdl uses some deprecated APIs in C++17, so we set this to C++17
+--- src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
++++ src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
+@@ -12,7 +12,23 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-find_package(orocos_kdl REQUIRED)
++if(NOT TARGET orocos-kdl AND NOT TARGET orocos_kdl::orocos_kdl)
++  set(_orocos_kdl_conan_hint "")
++  foreach(_orocos_kdl_hint IN ITEMS
++      "${CMAKE_CURRENT_LIST_DIR}/../../../../conan"
++      "${CMAKE_INSTALL_PREFIX}/../conan"
++      "${CMAKE_BINARY_DIR}/../../conan")
++    if(IS_DIRECTORY "${_orocos_kdl_hint}")
++      set(_orocos_kdl_conan_hint "${_orocos_kdl_hint}")
++      break()
++    endif()
++  endforeach()
++  if(_orocos_kdl_conan_hint)
++    find_package(orocos_kdl REQUIRED CONFIG PATHS "${_orocos_kdl_conan_hint}" NO_DEFAULT_PATH)
++  else()
++    find_package(orocos_kdl REQUIRED)
++  endif()
++endif()
+ if(NOT TARGET orocos-kdl)
+   find_library(orocos_kdl_LIBRARY orocos-kdl REQUIRED)
+   add_library(orocos-kdl SHARED IMPORTED)
+@@ -24,6 +40,34 @@ endif()
+ 
+ find_package(eigen3_cmake_module REQUIRED)
+ find_package(Eigen3 REQUIRED)
++
++foreach(_orocos_kdl_boost_hint IN ITEMS
++    "${CMAKE_CURRENT_LIST_DIR}/../../../../conan"
++    "${CMAKE_INSTALL_PREFIX}/../conan"
++    "${CMAKE_BINARY_DIR}/../../conan"
++  )
++  if(IS_DIRECTORY "${_orocos_kdl_boost_hint}")
++    list(PREPEND CMAKE_PREFIX_PATH "${_orocos_kdl_boost_hint}")
++  endif()
++endforeach()
++find_package(boost CONFIG QUIET)
++find_package(Boost CONFIG QUIET)
++set(_orocos_kdl_boost_iface "")
++if(TARGET boost::boost)
++  set(_orocos_kdl_boost_iface boost::boost)
++elseif(TARGET Boost::boost)
++  set(_orocos_kdl_boost_iface Boost::boost)
++elseif(TARGET Boost::headers)
++  set(_orocos_kdl_boost_iface Boost::headers)
++endif()
++if(_orocos_kdl_boost_iface)
++  foreach(_orocos_kdl_cmake_iface IN ITEMS orocos-kdl orocos_kdl::orocos_kdl)
++    if(TARGET ${_orocos_kdl_cmake_iface})
++      target_link_libraries(${_orocos_kdl_cmake_iface} INTERFACE ${_orocos_kdl_boost_iface})
++    endif()
++  endforeach()
++endif()
++
+ message(STATUS "Ensuring Eigen3 include directory is part of orocos-kdl CMake target")
+ if(TARGET Eigen3::Eigen)
+   # TODO: require target to exist when https://github.com/ros2/choco-packages/issues/19 is addressed

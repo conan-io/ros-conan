@@ -1,0 +1,58 @@
+--- a/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt
++++ b/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt
+@@ -7,42 +7,8 @@ find_package(ament_cmake_vendor_package REQUIRED)
+ option(RVIZ_OGRE_VENDOR_MANGLE_NAME_OF_LIBRARIES_USED_BY_RVIZ "If enabled, append a unique name to OgreMain, OgreOverlay and OgreGLSupport." FALSE)
+ 
+ if(WIN32)
+-  set(FREETYPE_C_FLAGS "${CMAKE_C_FLAGS}")
+-  if(MSVC)
+-    set(FREETYPE_C_FLAGS "/wd4244 ${FREETYPE_C_FLAGS}")
+-    set(FREETYPE_C_FLAGS "/wd4267 ${FREETYPE_C_FLAGS}")
+-    set(FREETYPE_C_FLAGS "/wd4312 ${FREETYPE_C_FLAGS}")
+-    set(FREETYPE_C_FLAGS "/wd4996 ${FREETYPE_C_FLAGS}")
+-  endif()
+-
+-  ament_vendor(freetype_vendor
+-    VCS_URL https://github.com/freetype/freetype.git
+-    VCS_VERSION VER-2-13-2
+-    CMAKE_ARGS
+-      -DFT_DISABLE_ZLIB:BOOL=ON
+-      -DFT_DISABLE_BZIP2:BOOL=ON
+-      -DFT_DISABLE_PNG:BOOL=ON
+-      -DFT_DISABLE_HARFBUZZ:BOOL=ON
+-      "-DCMAKE_C_FLAGS=${FREETYPE_C_FLAGS}"
+-  )
+-
+-  set(ZLIB_C_FLAGS "${ZLIB_C_FLAGS}")
+-  if(MSVC)
+-    set(ZLIB_C_FLAGS "/wd4267 ${ZLIB_C_FLAGS}")
+-  endif()
+-
+-  ament_vendor(zlib_vendor
+-    VCS_URL https://github.com/madler/zlib.git
+-    VCS_VERSION v1.3
+-    CMAKE_ARGS
+-      # zlib doesn't use CMAKE_INSTALL_PREFIX correctly, so we need to override
+-      -DINSTALL_BIN_DIR=<INSTALL_DIR>/bin
+-      -DINSTALL_LIB_DIR=<INSTALL_DIR>/lib
+-      -DINSTALL_INC_DIR=<INSTALL_DIR>/include
+-      -DINSTALL_MAN_DIR=<INSTALL_DIR>/share/man
+-      -DINSTALL_PKGCONFIG_DIR=<INSTALL_DIR>/share/pkgconfig
+-      "-DCMAKE_C_FLAGS=${ZLIB_C_FLAGS}"
+-  )
++  find_package(ZLIB REQUIRED)
++  find_package(Freetype REQUIRED)
+ endif()
+ 
+ set(OGRE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+@@ -80,6 +46,10 @@ if(APPLE)
+   list(APPEND OGRE_CMAKE_ARGS -DOGRE_ENABLE_PRECOMPILED_HEADERS:BOOL=OFF)
+   list(APPEND OGRE_CMAKE_ARGS -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64)
+ endif()
++if(WIN32 AND CMAKE_TOOLCHAIN_FILE)
++  list(APPEND OGRE_CMAKE_ARGS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
++endif()
++
+ 
+ ament_vendor(ogre_vendor
+   VCS_URL https://github.com/OGRECave/ogre.git
