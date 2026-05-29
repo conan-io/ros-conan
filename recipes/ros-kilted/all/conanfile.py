@@ -132,7 +132,6 @@ class Ros2KiltedConan(ConanFile):
         # QPixmap. Without the QtSvg image plugin those files silently fail with
         # "Could not load pixmap package://rviz_common/icons/...svg".
         "qt/*:qtsvg": True,
-        "openssl/*:shared": True
     }
 
     # ros2/variants metapackages. core/base prefixed with `ros_`; desktop variants not.
@@ -160,7 +159,7 @@ class Ros2KiltedConan(ConanFile):
         self.folders.generators = os.path.join(ws, "conan")
 
     def requirements(self):
-        self.requires("openssl/3.3.2", transitive_libs=True)
+        self.requires("openssl/[>=3.3 <4]", transitive_libs=True)
         self.requires("zlib/1.3.1")
         self.requires("fmt/10.2.1")
         # Temporarily off: no matching ConanCenter prebuilt for this Windows/MSVC profile (re-enable with

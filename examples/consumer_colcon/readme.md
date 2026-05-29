@@ -55,7 +55,7 @@ call build\generators\conanrosenv.bat
 colcon build --event-handlers console_cohesion+
 call install\setup.bat
 
-install\consumer_node\lib\consumer_node\consumer_node.exe
+ros2 run consumer_node consumer_node
 ```
 
 **macOS / Linux (bash/zsh):**
@@ -65,27 +65,33 @@ install\consumer_node\lib\consumer_node\consumer_node.exe
 colcon build --event-handlers console_cohesion+
 . ./install/setup.sh
 
+ros2 run consumer_node consumer_node
+```
+
+`ros2` itself is shipped by `ros-kilted` (`Scripts/ros2.exe` on Windows, `bin/ros2` on
+macOS/Linux) and `conanrosenv.{bat,sh}` puts it on `PATH` together with the
+`AMENT_PREFIX_PATH` / `PYTHONPATH` entries it needs. Sourcing the workspace's
+`install/setup.{bat,sh}` then prepends the freshly built `consumer_node` to that
+`AMENT_PREFIX_PATH`, so `ros2 run` (or any other `ros2` subcommand) resolves it like
+on a system-installed ROS 2.
+
+If you prefer to skip `ros2`, the executable is also reachable directly from the
+install tree:
+
+```bat
+install\consumer_node\lib\consumer_node\consumer_node.exe
+```
+
+```bash
 ./install/consumer_node/lib/consumer_node/consumer_node
 ```
 
 Expected output (truncated):
 
 ```text
-Hello from dummy_lib
+[dummy_lib] hello from library
 [INFO] [...] [colcon_consumer_node]: colcon consumer_node: rclcpp linked and node started.
 ```
-
-## Known limitations
-
-The `ros2` CLI (Python entry points such as `ros2 run`, `ros2 launch`, ...) is not yet
-exposed by `ros-kilted`, so the canonical invocation
-
-```bash
-# after `colcon build` and sourcing install/setup.{sh,bat}
-ros2 run consumer_node consumer_node
-```
-
-does not work today. Run the executable directly from the `install/` tree as shown above.
 
 The exact CI invocation (with the Python-interpreter pinning mentioned above) lives in
 [`ci_test_example.py`](ci_test_example.py).
