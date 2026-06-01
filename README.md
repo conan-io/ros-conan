@@ -1,19 +1,35 @@
-# ros-conan
+<div align="center">
+
+# 🤖 ros-conan
+
+**🚀 Conan recipes for building [ROS 2](https://docs.ros.org/) from source — consumable like any other Conan package.**
 
 [![Conan create ros-kilted](https://github.com/conan-io/ros-conan/actions/workflows/conan-create-ros-kilted.yml/badge.svg)](https://github.com/conan-io/ros-conan/actions/workflows/conan-create-ros-kilted.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![ROS 2 Kilted](https://img.shields.io/badge/ROS%202-Kilted-22314E.svg)](https://docs.ros.org/en/kilted/)
+[![Conan 2](https://img.shields.io/badge/Conan-2.x-6699cb.svg)](https://conan.io)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#profiles)
 
-Conan recipes for building and packaging [ROS 2](https://docs.ros.org/) from sources. The
-recipes follow the official upstream development setup for each platform:
+<img src="examples/pose_estimation/assets/output.gif" alt="Pose estimation demo built end-to-end from Conan packages" width="640" />
 
-- Windows: <https://docs.ros.org/en/kilted/Installation/Alternatives/Windows-Development-Setup.html>
-- macOS: <https://docs.ros.org/en/kilted/Installation/Alternatives/macOS-Development-Setup.html>
-- Linux: <https://docs.ros.org/en/kilted/Installation/Alternatives/Ubuntu-Development-Setup.html>
+<sub>End-to-end demo built from Conan packages — `ros-kilted` (desktop) + OpenCV + TensorFlow Lite. See <a href="examples/pose_estimation/readme.md"><code>examples/pose_estimation</code></a>.</sub>
 
-The goal is to make ROS 2 consumable from any Conan-based project (plain CMake, `colcon`
-workspaces, or other build systems) with a single `conan install` step. System dependencies
-are resolved through Conan instead of `rosdep` / `apt` / `brew` / `choco`, and most of the
-Python build tooling (`colcon-*`, `catkin_pkg`, `empy`, ...) is provisioned inside the
-package via Conan's `PyEnv`.
+</div>
+
+---
+
+## ✨ Why ros-conan?
+
+- 📦 **One `conan install`.** Pull ROS 2 and every system dependency from a Conan remote — no `rosdep`, `apt`, `brew` or `choco` required.
+- 🔌 **Drop-in for any build system.** Plain CMake projects, `colcon` workspaces, or anything else that speaks `CMake's find_package` can consume `ros-kilted`.
+- 🔁 **Reproducible & cacheable.** Profile-pinned binaries, uploaded to Artifactory, resolved deterministically across machines and CI.
+- 🐍 **Hermetic Python tooling.** `colcon-*`, `catkin_pkg`, `empy`, ... ship inside the package via Conan's `PyEnv`. No global `pip` pollution.
+
+The recipes follow the official upstream development setup for each platform:
+
+- 🪟 Windows: <https://docs.ros.org/en/kilted/Installation/Alternatives/Windows-Development-Setup.html>
+- 🍎 macOS: <https://docs.ros.org/en/kilted/Installation/Alternatives/macOS-Development-Setup.html>
+- 🐧 Linux: <https://docs.ros.org/en/kilted/Installation/Alternatives/Ubuntu-Development-Setup.html>
 
 ## Recipes
 
@@ -34,24 +50,21 @@ need patches) and are required by `ros-kilted` or its consumers:
 All other third-party libraries (OpenSSL, Boost, Qt, OpenCV, Eigen, spdlog, gtest, ...) are
 pulled from [ConanCenter](https://conan.io/center/).
 
-## Usage
+## Quick start
 
-Add this repository as a [`local-recipes-index`](https://docs.conan.io/2/tutorial/conan_repositories/setup_local_recipes_index.html#local-recipes-index-repository)
-remote, then `ros-kilted` (and the dependency recipes above) resolve like any other Conan
-package:
+Add this repo as a [`local-recipes-index`](https://docs.conan.io/2/tutorial/conan_repositories/setup_local_recipes_index.html#local-recipes-index-repository)
+remote and install `ros-kilted` like any other Conan package:
 
 ```bash
 git clone https://github.com/conan-io/ros-conan.git
 conan remote add ros-conan ./ros-conan --type=local-recipes-index
-```
 
-Install or build from the index, for example:
-
-```bash
 conan install --requires=ros-kilted/0.1.0 \
     --build=missing \
     --profile=ros-conan/profiles/windows-msvc
 ```
+
+That's it — `ros-kilted` and the dependency recipes above resolve from this index, every other dependency comes from [ConanCenter](https://conan.io/center/).
 
 ### Variants
 
@@ -87,18 +100,13 @@ graph small.
 
 ## Examples
 
-Sample projects consuming `ros-kilted` through Conan. Each example has its own readme with
-build & run steps:
+Sample projects consuming `ros-kilted` through Conan. Each has its own readme with build & run steps.
 
-- [`examples/consumer_cmake`](examples/consumer_cmake/readme.md) — Minimal pure-CMake
-  consumer using `rclcpp`. Shows how `find_package(rclcpp)` is satisfied directly through
-  `CMakeDeps` (no `colcon` needed).
-- [`examples/consumer_colcon`](examples/consumer_colcon/readme.md) — A `colcon` workspace
-  (`dummy_lib` + `consumer_node`) that takes its toolchain and ROS runtime from Conan
-  through the `ROSEnv` generator.
-- [`examples/pose_estimation`](examples/pose_estimation/readme.md) — End-to-end demo
-  combining `ros-kilted` (`desktop` variant) with `opencv` and `tensorflow-lite` from
-  ConanCenter to publish a `MarkerArray` of a human skeleton extracted from a video stream.
+| Example                                                            | What it shows                                                                                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`consumer_cmake`](examples/consumer_cmake/readme.md)              | Minimal pure-CMake consumer using `rclcpp`. `find_package(rclcpp)` satisfied directly through `CMakeDeps` — no `colcon` needed.                              |
+| [`consumer_colcon`](examples/consumer_colcon/readme.md)            | A `colcon` workspace (`dummy_lib` + `consumer_node`) that takes its toolchain and ROS runtime from Conan via the `ROSEnv` generator.                          |
+| [`pose_estimation`](examples/pose_estimation/readme.md)            | End-to-end demo combining `ros-kilted` (`desktop`) + `opencv` + `tensorflow-lite` from ConanCenter to publish a `MarkerArray` skeleton from a video stream. |
 
 ## Developing the `ros-kilted` recipe
 
