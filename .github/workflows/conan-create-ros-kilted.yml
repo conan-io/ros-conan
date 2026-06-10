@@ -18,6 +18,9 @@ jobs:
           - runner: macos-latest
             profile: profiles/macos-clang
             conan_home: /tmp/conan-ci
+          - runner: ubuntu-latest
+            profile: profiles/linux-gcc
+            conan_home: /tmp/conan-ci
 
     runs-on: ${{ matrix.runner }}
     env:
