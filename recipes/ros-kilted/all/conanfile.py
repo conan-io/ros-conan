@@ -234,6 +234,19 @@ class Ros2KiltedConan(ConanFile):
     def generate(self):
         pyenv = PyEnv(self)
         pyenv.install(list(PIP_BUILD_TOOLS))
+        # ament_cmake_core's templates_2_cmake.py imports `ament_package` at CMake
+        # configure time, but ament_cmake_core's package.xml only declares
+        # ament_package as <buildtool_export_depend> (not <buildtool_depend>), so
+        # colcon schedules them in the same parallel batch and ament_cmake_core
+        # configures before ament_package has been built. Stock Ubuntu ROS dev
+        # setups paper over this with `python3-ament-package` from apt; in our
+        # isolated PyEnv nothing satisfies the import. Pre-install ament_package
+        # directly from the workspace source (vcstool just unpacked it under
+        # src/ament/ament_package) so the very first cmake invocation succeeds.
+        ament_package_src = os.path.join(
+            self.source_folder, "src", "ament", "ament_package")
+        if os.path.isdir(ament_package_src):
+            pyenv.install([ament_package_src])
         pyenv.generate()
         # Colcon must not descend into site-packages under this venv.
         save(self, os.path.join(pyenv.env_dir, "COLCON_IGNORE"), "")
