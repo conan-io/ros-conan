@@ -212,6 +212,13 @@ class Ros2KiltedConan(ConanFile):
             self.requires("qt/5.15.18", options={"shared": True})
             # OGRE is built by rviz_ogre_vendor from upstream sources; zlib/freetype are
             # find_package'd on Windows (patched) and supplied via Conan with the colcon toolchain.
+            if self.settings.os == "Linux":
+                # qt/5.15.18 hard-pins xkbcommon/1.5.0, opencv/4.9.0 (with_wayland=True
+                # by default on Linux) hard-pins xkbcommon/1.6.0 → graph conflict. Both
+                # consume the same xkbcommon::libxkbcommon[-x11] targets, so force a
+                # single version. Only meaningful on Linux; xkbcommon is not pulled in
+                # by qt/opencv on Windows or macOS.
+                self.requires("xkbcommon/1.6.0", override=True)
 
         if variant == "desktop_full":
             self.requires("pcl/1.14.1")  # built with with_vtk=False on CCI; OK for headless, not for full viz.
