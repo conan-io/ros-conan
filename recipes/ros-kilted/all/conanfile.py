@@ -257,6 +257,37 @@ class Ros2KiltedConan(ConanFile):
         # Colcon must not descend into site-packages under this venv.
         save(self, os.path.join(pyenv.env_dir, "COLCON_IGNORE"), "")
 
+        # colcon --merge-install drops ament_cmake_python packages
+        # (rosidl_adapter, rosidl_cli, ament_index_python, ...) into
+        # install/lib/python*/site-packages. Downstream packages' CMake then
+        # invokes `${Python3_EXECUTABLE} -m rosidl_adapter ...` while
+        # configuring (e.g. builtin_interfaces). colcon does update PYTHONPATH
+        # for the per-package build env, but the PyEnv venv interpreter
+        # launched via CMake's execute_process does not reliably see those
+        # paths, so the import fails with `No module named rosidl_adapter`.
+        # Drop a .pth file in the venv's site-packages whose `import ...`
+        # line is re-evaluated on every interpreter startup (site.py contract)
+        # and globs the merged-install site-packages to prepend them to
+        # sys.path. This way each new `python -m <module>` call sees whatever
+        # colcon has installed so far - no need to pre-install or enumerate
+        # individual Python modules. Both posix (lib/pythonX.Y/site-packages)
+        # and Windows (Lib/site-packages) layouts are covered.
+        install_root = os.path.join(self.build_folder, "install")
+        pth_line = (
+            "import sys, glob, os; "
+            f"_inst = {install_root!r}; "
+            "sys.path[0:0] = ("
+            "sorted(glob.glob(os.path.join(_inst, 'lib', 'python*', 'site-packages'))) "
+            "+ sorted(glob.glob(os.path.join(_inst, 'Lib', 'site-packages')))"
+            ")\n"
+        )
+        venv_site_packages = (
+            glob.glob(os.path.join(pyenv.env_dir, "lib", "python*", "site-packages"))
+            + glob.glob(os.path.join(pyenv.env_dir, "Lib", "site-packages"))
+        )
+        for sp in venv_site_packages:
+            save(self, os.path.join(sp, "ros2_install.pth"), pth_line)
+
         py_exe = pyenv.env_exe.replace("\\", "/")
         py_root = pyenv.env_dir.replace("\\", "/")
 
