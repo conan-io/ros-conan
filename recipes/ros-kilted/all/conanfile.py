@@ -375,6 +375,20 @@ class Ros2KiltedConan(ConanFile):
         # these locations become visible automatically.
         for sp in getattr(self, "_install_site_packages_paths", []):
             vbe.environment().prepend_path("PYTHONPATH", sp)
+        # Same trick for the shared-library loader: some packages build a
+        # tool (e.g. cyclonedds' idlc, which links libiceoryx_posh) and then
+        # invoke it from a CMake add_custom_command in the SAME colcon run.
+        # The tool's RUNPATH is set by colcon for the final install location,
+        # but in the build tree the binary is exercised before being copied,
+        # so dlopen() has to fall back to LD_LIBRARY_PATH / DYLD_LIBRARY_PATH
+        # / PATH. Point those at the future install/lib (or install/bin on
+        # Windows for DLL search order); resolution is lazy so the dirs being
+        # empty/missing at generate() time is fine.
+        install_lib = os.path.join(self.build_folder, "install", "lib")
+        install_bin = os.path.join(self.build_folder, "install", "bin")
+        vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
+        vbe.environment().prepend_path("DYLD_LIBRARY_PATH", install_lib)
+        vbe.environment().prepend_path("PATH", install_bin)
         vbe.generate()
 
     def _patch_conan_toolchain_cmp0091_early(self):
