@@ -18,6 +18,7 @@ from conan.tools.files import (
 )
 from conan.tools.microsoft import VCVars
 from conan.tools.system import PyEnv
+from conan.tools.system.package_manager import Apt
 
 PIP_BUILD_TOOLS = (
     # --- colcon ---
@@ -230,6 +231,11 @@ class Ros2KiltedConan(ConanFile):
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
+
+    def system_requirements(self):
+        if self.settings.os != "Linux":
+            return
+        Apt(self).install(["libacl1-dev"], update=True, check=True)
 
     def generate(self):
         pyenv = PyEnv(self)
