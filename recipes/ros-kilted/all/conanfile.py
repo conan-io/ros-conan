@@ -211,6 +211,16 @@ class Ros2KiltedConan(ConanFile):
             # Default qt/*:shared=False is static-only (no qwindows.dll under plugins/);
             # RViz/Qt QPA still loads platform plugins at runtime → require shared Qt.
             self.requires("qt/5.15.18", options={"shared": True})
+            # OGRE (built by rviz_ogre_vendor from upstream sources) #include's
+            # <GL/glu.h> via its bundled glew.h. xorg/system and opengl/system
+            # come along transitively through qt+opencv (and install the X11
+            # core + libgl-dev apt deps on Linux), but neither covers GLU.
+            # glu/system installs libglu1-mesa-dev on Debian/Ubuntu (and the
+            # right equivalent on Fedora/Arch/SUSE/Alpine/FreeBSD), is a no-op
+            # on macOS where GLU is part of the OpenGL framework, and exposes
+            # glu32 as a system_lib on Windows. Cross-platform-aware so no
+            # need to gate by self.settings.os here.
+            self.requires("glu/system")
             # OGRE is built by rviz_ogre_vendor from upstream sources; zlib/freetype are
             # find_package'd on Windows (patched) and supplied via Conan with the colcon toolchain.
             if self.settings.os == "Linux":
@@ -233,6 +243,15 @@ class Ros2KiltedConan(ConanFile):
             self.tool_requires("7zip/23.01")
 
     def system_requirements(self):
+        # iceoryx release_2.0 hard-links -lacl; see iceoryx_hoofs CMakeLists.
+        # No ConanCenter recipe wraps libacl, so we install it directly via apt
+        # on Linux (no-op elsewhere - macOS/Windows use stub ACL headers shipped
+        # with iceoryx). Every other Linux build dep (X11/GL/GLU/Xaw/Xrandr/Xt
+        # for rviz_ogre_vendor) is covered by Conan: xorg/system + opengl/system
+        # come in transitively via qt+opencv, and glu/system is required
+        # directly in requirements() above for the desktop variants. Their own
+        # system_requirements() runs the corresponding apt installs, with
+        # cross-distro mapping built in.
         if self.settings.os != "Linux":
             return
         Apt(self).install(["libacl1-dev"], update=True, check=True)
