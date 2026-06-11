@@ -287,6 +287,9 @@ class Ros2KiltedConan(ConanFile):
         tc.variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
         # tc.variables["USE_SYSTEM_ZENOH"] = True
         tc.variables["CMAKE_BUILD_TYPE"] = str(self.settings.build_type)
+        if self.settings.os == "Linux":
+            # tracetools' CMakeLists disabled on WIN32/APPLE/ANDROID/BSD, do the same for Linux
+            tc.variables["TRACETOOLS_DISABLED"] = True
         tc.generate()
         self._patch_conan_toolchain_cmp0091_early()
         cmakedeps = CMakeDeps(self)
