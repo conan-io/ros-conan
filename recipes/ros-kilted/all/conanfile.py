@@ -261,18 +261,41 @@ class Ros2KiltedConan(ConanFile):
         # (rosidl_adapter, rosidl_cli, ament_index_python, ...) into
         # install/lib/python*/site-packages. Downstream packages' CMake then
         # invokes `${Python3_EXECUTABLE} -m rosidl_adapter ...` while
-        # configuring (e.g. builtin_interfaces). colcon does update PYTHONPATH
-        # for the per-package build env, but the PyEnv venv interpreter
-        # launched via CMake's execute_process does not reliably see those
-        # paths, so the import fails with `No module named rosidl_adapter`.
-        # Drop a .pth file in the venv's site-packages whose `import ...`
-        # line is re-evaluated on every interpreter startup (site.py contract)
-        # and globs the merged-install site-packages to prepend them to
-        # sys.path. This way each new `python -m <module>` call sees whatever
-        # colcon has installed so far - no need to pre-install or enumerate
-        # individual Python modules. Both posix (lib/pythonX.Y/site-packages)
-        # and Windows (Lib/site-packages) layouts are covered.
+        # configuring (e.g. builtin_interfaces). The PyEnv venv interpreter
+        # launched via CMake's execute_process does not see those paths
+        # (colcon's PYTHONPATH plumbing is per-shell-hook and doesn't reach
+        # the venv python invoked through cmake), so the import fails with
+        # `No module named rosidl_adapter`. Pre-installing each module via
+        # pip is not viable: most rosidl_* packages have no setup.py /
+        # pyproject.toml (they rely on ament_cmake_python). Two complementary
+        # fixes that both have to land:
+        #   1. Drop a .pth file inside the venv's site-packages whose
+        #      `import ...` line site.py re-evaluates on every interpreter
+        #      startup; the glob pulls in whatever colcon has installed under
+        #      install/lib/python*/site-packages so far. Belt.
+        #   2. Prepend the same paths to PYTHONPATH via VirtualBuildEnv (see
+        #      generate() below) so even a python invocation that somehow
+        #      bypasses site.py still resolves the modules. Suspenders.
+        # The Python version (3.12) is detected from the venv's own lib
+        # layout - PyEnv just created it, so the dir exists by now.
+        venv_python_dirs = [
+            d for d in os.listdir(os.path.join(pyenv.env_dir, "lib"))
+            if d.startswith("python")
+            and os.path.isdir(os.path.join(pyenv.env_dir, "lib", d, "site-packages"))
+        ] if os.path.isdir(os.path.join(pyenv.env_dir, "lib")) else []
+        self.output.info(
+            f"[ros-kilted] pyenv.env_dir={pyenv.env_dir}, "
+            f"detected venv python dirs={venv_python_dirs}")
+
         install_root = os.path.join(self.build_folder, "install")
+        self._install_site_packages_paths = [
+            os.path.join(install_root, "lib", d, "site-packages")
+            for d in venv_python_dirs
+        ] + [os.path.join(install_root, "Lib", "site-packages")]
+        self.output.info(
+            f"[ros-kilted] colcon install site-packages PYTHONPATH entries: "
+            f"{self._install_site_packages_paths}")
+
         pth_line = (
             "import sys, glob, os; "
             f"_inst = {install_root!r}; "
@@ -285,8 +308,12 @@ class Ros2KiltedConan(ConanFile):
             glob.glob(os.path.join(pyenv.env_dir, "lib", "python*", "site-packages"))
             + glob.glob(os.path.join(pyenv.env_dir, "Lib", "site-packages"))
         )
+        self.output.info(
+            f"[ros-kilted] writing ros2_install.pth into: {venv_site_packages}")
         for sp in venv_site_packages:
-            save(self, os.path.join(sp, "ros2_install.pth"), pth_line)
+            pth_path = os.path.join(sp, "ros2_install.pth")
+            save(self, pth_path, pth_line)
+            self.output.info(f"[ros-kilted]   wrote {pth_path}")
 
         py_exe = pyenv.env_exe.replace("\\", "/")
         py_root = pyenv.env_dir.replace("\\", "/")
@@ -339,6 +366,15 @@ class Ros2KiltedConan(ConanFile):
         VCVars(self).generate()
         vbe = VirtualBuildEnv(self)
         vbe.environment().define("ROS_DISTRO", "kilted")
+        # Suspenders for the .pth file written above: prepend the future
+        # colcon merged-install site-packages to PYTHONPATH so any python
+        # process colcon's per-package cmake spawns can import rosidl_adapter
+        # & friends even if site.py .pth processing is somehow skipped. Paths
+        # don't exist yet at generate() time, but PYTHONPATH entries are
+        # resolved lazily at Python startup, so future colcon installs into
+        # these locations become visible automatically.
+        for sp in getattr(self, "_install_site_packages_paths", []):
+            vbe.environment().prepend_path("PYTHONPATH", sp)
         vbe.generate()
 
     def _patch_conan_toolchain_cmp0091_early(self):
