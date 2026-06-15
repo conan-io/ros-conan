@@ -13,11 +13,11 @@ jobs:
       matrix:
         include:
           - runner: windows-latest
-            profile: profiles/windows-msvc
             conan_home: C:/.c2
+            conan_options: -o ros-kilted/*:variant=desktop
           - runner: macos-latest
-            profile: profiles/macos-clang
             conan_home: /tmp/conan-ci
+            conan_options: -o ros-kilted/*:variant=desktop
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -80,7 +80,7 @@ jobs:
         run: >
           conan install recipes/ros-kilted/all --version=0.1.0
           --build=missing
-          --profile:host=${{ matrix.profile }}
+          ${{ matrix.conan_options }}
           --format=json --out-file=install_graph.json
 
       # Only binaries built from source in the install above (binary=Build), not
@@ -96,7 +96,7 @@ jobs:
 
       - name: Conan create
         working-directory: ${{ github.workspace }}
-        run: conan create recipes/ros-kilted/all --version=0.1.0  --profile=${{ matrix.profile }}
+        run: conan create recipes/ros-kilted/all --version=0.1.0 ${{ matrix.conan_options }}
 
       - name: Find and run examples
         shell: bash

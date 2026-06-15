@@ -150,6 +150,11 @@ class Ros2KiltedConan(ConanFile):
         # desktop_full variant fails.
         if str(self.options.variant) == "desktop_full":
             self.options["boost/*"].header_only = False
+        # FFmpeg's Windows build pulls in a broken libwebp path via CCI that
+        # causes CMakeDeps failures on Windows; disabling it costs nothing for
+        # ROS desktop usage.
+        if self.settings.os == "Windows":
+            self.options["opencv/*"].with_ffmpeg = False
 
     def layout(self):
         # Single-tree colcon workspace: src/, build/, install/, log/ under ros2_ws/
@@ -218,7 +223,7 @@ class Ros2KiltedConan(ConanFile):
             # self.requires("vtk/9.x")  # Not on ConanCenter; required for PCL visualization — provide via system or custom recipe.
 
     def build_requirements(self):
-        self.tool_requires("cmake/3.28.5")
+        self.tool_requires("cmake/3.29.3")
         # self.tool_requires("cppcheck/2.15.0")  # see requirements() comment: missing binary for profile
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
