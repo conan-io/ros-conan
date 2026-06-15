@@ -1,13 +1,9 @@
-<div align="center">
-
 # ros-conan
 
 [![Conan create ros-kilted](https://github.com/conan-io/ros-conan/actions/workflows/conan-create-ros-kilted.yml/badge.svg)](https://github.com/conan-io/ros-conan/actions/workflows/conan-create-ros-kilted.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![ROS 2 Kilted](https://img.shields.io/badge/ROS%202-Kilted-22314E.svg)](https://docs.ros.org/en/kilted/)
-[![Conan 2](https://img.shields.io/badge/Conan-2.x-6699cb.svg)](https://conan.io)
 
-</div>
+Conan recipes for building [ROS 2](https://docs.ros.org/) from source. Pull ROS 2 and all its dependencies with a single `conan install`, no `rosdep`, `apt`, `brew` or `choco` required. Works with plain CMake projects and `colcon` workspaces, on Windows, macOS and Linux.
 
 ---
 
