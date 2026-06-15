@@ -1,0 +1,10 @@
+include(default)
+
+[options]
+ros-kilted/*:variant=desktop
+{% if platform.system() == "Windows" %}
+opencv/*:with_ffmpeg=False
+{% endif %}
+
+[tool_requires]
+*: cmake/3.29.3

@@ -14,7 +14,7 @@ git clone https://github.com/conan-io/ros-conan.git
 conan remote add ros-conan ./ros-conan --type=local-recipes-index
 
 conan install --requires=ros-kilted/0.1.0 \
-    -o ros-kilted/*:variant=desktop \
+    --profile=ros-conan/profiles/desktop \
     --build=missing
 ```
 
