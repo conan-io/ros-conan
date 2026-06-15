@@ -78,8 +78,7 @@ jobs:
         run: >
           conan install recipes/ros-kilted/all --version=0.1.0
           --build=missing
-          --profile:host=profiles/desktop
-
+          --profile:host=profiles/ros
           --format=json --out-file=install_graph.json
 
       # Only binaries built from source in the install above (binary=Build), not
@@ -95,7 +94,7 @@ jobs:
 
       - name: Conan create
         working-directory: ${{ github.workspace }}
-        run: conan create recipes/ros-kilted/all --version=0.1.0 --profile=profiles/desktop
+        run: conan create recipes/ros-kilted/all --version=0.1.0 --profile=profiles/ros
       - name: Find and run examples
         shell: bash
         env:

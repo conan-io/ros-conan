@@ -14,11 +14,25 @@ git clone https://github.com/conan-io/ros-conan.git
 conan remote add ros-conan ./ros-conan --type=local-recipes-index
 
 conan install --requires=ros-kilted/0.1.0 \
-    --profile=ros-conan/profiles/desktop \
+    --profile=ros-conan/profiles/ros \
     --build=missing
 ```
 
 `ros-kilted` and its bundled dependencies resolve from this index. Everything else comes from [ConanCenter](https://conan.io/center/).
+
+Activate the ROS environment and verify:
+
+```bash
+# Linux / macOS
+source conanrun.sh
+ros2 pkg list
+```
+
+```powershell
+# Windows
+.\conanrun.ps1
+ros2 pkg list
+```
 
 ### Variants
 
