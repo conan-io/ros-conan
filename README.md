@@ -20,7 +20,7 @@ conan install --requires=ros-kilted/0.1.0 \
 
 `ros-kilted` and its bundled dependencies resolve from this index. Everything else comes from [ConanCenter](https://conan.io/center/).
 
-Activate the ROS environment and verify:
+Activate the Conan virtual run environment and verify:
 
 ```bash
 # Linux / macOS
@@ -28,9 +28,9 @@ source conanrun.sh
 ros2 pkg list
 ```
 
-```powershell
-# Windows
-.\conanrun.ps1
+```bat
+REM Windows
+conanrun.bat
 ros2 pkg list
 ```
 
