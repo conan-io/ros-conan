@@ -18,6 +18,7 @@ from conan.tools.files import (
 )
 from conan.tools.microsoft import VCVars
 from conan.tools.system import PyEnv
+from conan.tools.system.package_manager import Apt
 
 PIP_BUILD_TOOLS = (
     # --- colcon ---
@@ -210,8 +211,25 @@ class Ros2KiltedConan(ConanFile):
             # Default qt/*:shared=False is static-only (no qwindows.dll under plugins/);
             # RViz/Qt QPA still loads platform plugins at runtime → require shared Qt.
             self.requires("qt/5.15.18", options={"shared": True})
+            # OGRE (built by rviz_ogre_vendor from upstream sources) #include's
+            # <GL/glu.h> via its bundled glew.h. xorg/system and opengl/system
+            # come along transitively through qt+opencv (and install the X11
+            # core + libgl-dev apt deps on Linux), but neither covers GLU.
+            # glu/system installs libglu1-mesa-dev on Debian/Ubuntu (and the
+            # right equivalent on Fedora/Arch/SUSE/Alpine/FreeBSD), is a no-op
+            # on macOS where GLU is part of the OpenGL framework, and exposes
+            # glu32 as a system_lib on Windows. Cross-platform-aware so no
+            # need to gate by self.settings.os here.
+            self.requires("glu/system")
             # OGRE is built by rviz_ogre_vendor from upstream sources; zlib/freetype are
             # find_package'd on Windows (patched) and supplied via Conan with the colcon toolchain.
+            if self.settings.os == "Linux":
+                # qt/5.15.18 hard-pins xkbcommon/1.5.0, opencv/4.9.0 (with_wayland=True
+                # by default on Linux) hard-pins xkbcommon/1.6.0 → graph conflict. Both
+                # consume the same xkbcommon::libxkbcommon[-x11] targets, so force a
+                # single version. Only meaningful on Linux; xkbcommon is not pulled in
+                # by qt/opencv on Windows or macOS.
+                self.requires("xkbcommon/1.6.0", override=True)
 
         if variant == "desktop_full":
             self.requires("pcl/1.14.1")  # built with with_vtk=False on CCI; OK for headless, not for full viz.
@@ -224,12 +242,97 @@ class Ros2KiltedConan(ConanFile):
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
 
+    def system_requirements(self):
+        # iceoryx release_2.0 hard-links -lacl; see iceoryx_hoofs CMakeLists.
+        # No ConanCenter recipe wraps libacl, so we install it directly via apt
+        # on Linux (no-op elsewhere - macOS/Windows use stub ACL headers shipped
+        # with iceoryx). Every other Linux build dep (X11/GL/GLU/Xaw/Xrandr/Xt
+        # for rviz_ogre_vendor) is covered by Conan: xorg/system + opengl/system
+        # come in transitively via qt+opencv, and glu/system is required
+        # directly in requirements() above for the desktop variants. Their own
+        # system_requirements() runs the corresponding apt installs, with
+        # cross-distro mapping built in.
+        if self.settings.os != "Linux":
+            return
+        Apt(self).install(["libacl1-dev"], update=True, check=True)
+
     def generate(self):
         pyenv = PyEnv(self)
         pyenv.install(list(PIP_BUILD_TOOLS))
+        # ament_cmake_core's templates_2_cmake.py imports `ament_package` at CMake
+        # configure time, but ament_cmake_core's package.xml only declares
+        # ament_package as <buildtool_export_depend> (not <buildtool_depend>), so
+        # colcon schedules them in the same parallel batch and ament_cmake_core
+        # configures before ament_package has been built. Stock Ubuntu ROS dev
+        # setups paper over this with `python3-ament-package` from apt; in our
+        # isolated PyEnv nothing satisfies the import. Pre-install ament_package
+        # directly from the workspace source (vcstool just unpacked it under
+        # src/ament/ament_package) so the very first cmake invocation succeeds.
+        ament_package_src = os.path.join(
+            self.source_folder, "src", "ament", "ament_package")
+        if os.path.isdir(ament_package_src):
+            pyenv.install([ament_package_src])
         pyenv.generate()
         # Colcon must not descend into site-packages under this venv.
         save(self, os.path.join(pyenv.env_dir, "COLCON_IGNORE"), "")
+
+        # colcon --merge-install drops ament_cmake_python packages
+        # (rosidl_adapter, rosidl_cli, ament_index_python, ...) into
+        # install/lib/python*/site-packages. Downstream packages' CMake then
+        # invokes `${Python3_EXECUTABLE} -m rosidl_adapter ...` while
+        # configuring (e.g. builtin_interfaces). The PyEnv venv interpreter
+        # launched via CMake's execute_process does not see those paths
+        # (colcon's PYTHONPATH plumbing is per-shell-hook and doesn't reach
+        # the venv python invoked through cmake), so the import fails with
+        # `No module named rosidl_adapter`. Pre-installing each module via
+        # pip is not viable: most rosidl_* packages have no setup.py /
+        # pyproject.toml (they rely on ament_cmake_python). Two complementary
+        # fixes that both have to land:
+        #   1. Drop a .pth file inside the venv's site-packages whose
+        #      `import ...` line site.py re-evaluates on every interpreter
+        #      startup; the glob pulls in whatever colcon has installed under
+        #      install/lib/python*/site-packages so far. Belt.
+        #   2. Prepend the same paths to PYTHONPATH via VirtualBuildEnv (see
+        #      generate() below) so even a python invocation that somehow
+        #      bypasses site.py still resolves the modules. Suspenders.
+        # The Python version (3.12) is detected from the venv's own lib
+        # layout - PyEnv just created it, so the dir exists by now.
+        venv_python_dirs = [
+            d for d in os.listdir(os.path.join(pyenv.env_dir, "lib"))
+            if d.startswith("python")
+            and os.path.isdir(os.path.join(pyenv.env_dir, "lib", d, "site-packages"))
+        ] if os.path.isdir(os.path.join(pyenv.env_dir, "lib")) else []
+        self.output.info(
+            f"[ros-kilted] pyenv.env_dir={pyenv.env_dir}, "
+            f"detected venv python dirs={venv_python_dirs}")
+
+        install_root = os.path.join(self.build_folder, "install")
+        self._install_site_packages_paths = [
+            os.path.join(install_root, "lib", d, "site-packages")
+            for d in venv_python_dirs
+        ] + [os.path.join(install_root, "Lib", "site-packages")]
+        self.output.info(
+            f"[ros-kilted] colcon install site-packages PYTHONPATH entries: "
+            f"{self._install_site_packages_paths}")
+
+        pth_line = (
+            "import sys, glob, os; "
+            f"_inst = {install_root!r}; "
+            "sys.path[0:0] = ("
+            "sorted(glob.glob(os.path.join(_inst, 'lib', 'python*', 'site-packages'))) "
+            "+ sorted(glob.glob(os.path.join(_inst, 'Lib', 'site-packages')))"
+            ")\n"
+        )
+        venv_site_packages = (
+            glob.glob(os.path.join(pyenv.env_dir, "lib", "python*", "site-packages"))
+            + glob.glob(os.path.join(pyenv.env_dir, "Lib", "site-packages"))
+        )
+        self.output.info(
+            f"[ros-kilted] writing ros2_install.pth into: {venv_site_packages}")
+        for sp in venv_site_packages:
+            pth_path = os.path.join(sp, "ros2_install.pth")
+            save(self, pth_path, pth_line)
+            self.output.info(f"[ros-kilted]   wrote {pth_path}")
 
         py_exe = pyenv.env_exe.replace("\\", "/")
         py_root = pyenv.env_dir.replace("\\", "/")
@@ -267,6 +370,9 @@ class Ros2KiltedConan(ConanFile):
         tc.variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
         # tc.variables["USE_SYSTEM_ZENOH"] = True
         tc.variables["CMAKE_BUILD_TYPE"] = str(self.settings.build_type)
+        if self.settings.os == "Linux":
+            # tracetools' CMakeLists disabled on WIN32/APPLE/ANDROID/BSD, do the same for Linux
+            tc.variables["TRACETOOLS_DISABLED"] = True
         tc.generate()
         self._patch_conan_toolchain_cmp0091_early()
         cmakedeps = CMakeDeps(self)
@@ -279,6 +385,29 @@ class Ros2KiltedConan(ConanFile):
         VCVars(self).generate()
         vbe = VirtualBuildEnv(self)
         vbe.environment().define("ROS_DISTRO", "kilted")
+        # Suspenders for the .pth file written above: prepend the future
+        # colcon merged-install site-packages to PYTHONPATH so any python
+        # process colcon's per-package cmake spawns can import rosidl_adapter
+        # & friends even if site.py .pth processing is somehow skipped. Paths
+        # don't exist yet at generate() time, but PYTHONPATH entries are
+        # resolved lazily at Python startup, so future colcon installs into
+        # these locations become visible automatically.
+        for sp in getattr(self, "_install_site_packages_paths", []):
+            vbe.environment().prepend_path("PYTHONPATH", sp)
+        # Same trick for the shared-library loader: some packages build a
+        # tool (e.g. cyclonedds' idlc, which links libiceoryx_posh) and then
+        # invoke it from a CMake add_custom_command in the SAME colcon run.
+        # The tool's RUNPATH is set by colcon for the final install location,
+        # but in the build tree the binary is exercised before being copied,
+        # so dlopen() has to fall back to LD_LIBRARY_PATH / DYLD_LIBRARY_PATH
+        # / PATH. Point those at the future install/lib (or install/bin on
+        # Windows for DLL search order); resolution is lazy so the dirs being
+        # empty/missing at generate() time is fine.
+        install_lib = os.path.join(self.build_folder, "install", "lib")
+        install_bin = os.path.join(self.build_folder, "install", "bin")
+        vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
+        vbe.environment().prepend_path("DYLD_LIBRARY_PATH", install_lib)
+        vbe.environment().prepend_path("PATH", install_bin)
         vbe.generate()
 
     def _patch_conan_toolchain_cmp0091_early(self):

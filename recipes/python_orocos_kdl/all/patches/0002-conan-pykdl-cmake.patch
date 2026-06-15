@@ -21,7 +21,7 @@ index 5727483..5a1ddf8 100644
 +  set(_PYKDL_OROCOS_KDL_TARGET ${orocos_kdl_LIBRARIES})
 +endif()
 +find_package(Eigen3 REQUIRED CONFIG)
-+find_package(boost REQUIRED CONFIG)
++find_package(Boost REQUIRED CONFIG)
  
  set(PYBIND11_PYTHON_VERSION 3 CACHE STRING "Python version used by PyBind11")
  
@@ -30,5 +30,5 @@ index 5727483..5a1ddf8 100644
    PyKDL/framevel.cpp
    PyKDL/dynamics.cpp)
 -target_link_libraries(${LIBRARY_NAME} PRIVATE ${orocos_kdl_LIBRARIES})
-+target_link_libraries(${LIBRARY_NAME} PRIVATE ${_PYKDL_OROCOS_KDL_TARGET} Eigen3::Eigen boost::boost)
++target_link_libraries(${LIBRARY_NAME} PRIVATE ${_PYKDL_OROCOS_KDL_TARGET} Eigen3::Eigen Boost::boost)
  install(TARGETS ${LIBRARY_NAME} DESTINATION "${PYTHON_SITE_PACKAGES_INSTALL_DIR}")
