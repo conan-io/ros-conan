@@ -25,7 +25,13 @@ if platform.system() == "Windows":
 else:
     run(shlex.join(_pip))
 
-profile = "windows-msvc" if platform.system() == "Windows" else "macos-clang"
+_system = platform.system()
+if _system == "Windows":
+    profile = "windows-msvc"
+elif _system == "Darwin":
+    profile = "macos-clang"
+else:
+    profile = "linux-gcc"
 
 run(f"conan install --profile ../../profiles/{profile} --build=missing")
 

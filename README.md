@@ -83,7 +83,7 @@ Set it on the command line:
 conan install --requires=ros-kilted/0.1.0 -o ros-kilted/*:variant=desktop --build=missing
 ```
 
-or in a profile (see `profiles/windows-msvc` and `profiles/macos-clang`).
+or in a profile (see `profiles/windows-msvc`, `profiles/macos-clang` and `profiles/linux-gcc`).
 
 ## Profiles
 
@@ -93,10 +93,13 @@ Reference profiles for the CI-supported platforms live in [`profiles/`](profiles
 | ----------------------- | --------------------------------------------------------------------------------------- |
 | `profiles/windows-msvc` | Windows x86_64, MSVC 19.4 (Visual Studio 2022), C++17, dynamic runtime.                 |
 | `profiles/macos-clang`  | macOS arm64, apple-clang 21, libc++, C++17.                                             |
+| `profiles/linux-gcc`    | Linux x86_64, GCC 13, libstdc++11, C++17.                                               |
 
-Both profiles pin a recent `cmake/*` as a global `tool_requires`, default `ros-kilted` to
+All profiles pin a recent `cmake/*` as a global `tool_requires`, default `ros-kilted` to
 the `desktop` variant and disable `opencv:with_ffmpeg` on Windows to keep the dependency
-graph small.
+graph small. The Linux profile additionally enables Conan's system package manager so
+recipes that depend on system libraries (X11/xkb/OpenGL pulled in by Qt, OpenCV, ...) can
+install them via `apt` automatically.
 
 ## Examples
 
@@ -132,11 +135,11 @@ flow can be cleared by deleting that directory.
 
 ## Continuous integration
 
-GitHub Actions builds `ros-kilted` (`desktop` variant) on `windows-latest` (MSVC) and
-`macos-latest` (apple-clang) for every push to `main` and every pull request, then runs all
-`examples/*/ci_test_example.py` against the freshly produced package. Built binaries that
-hit the workflow (not those already cached on ConanCenter) are uploaded to a private
-Artifactory remote. See
+GitHub Actions builds `ros-kilted` (`desktop` variant) on `windows-latest` (MSVC),
+`macos-latest` (apple-clang) and `ubuntu-latest` (GCC) for every push to `main` and every
+pull request, then runs all `examples/*/ci_test_example.py` against the freshly produced
+package. Built binaries that hit the workflow (not those already cached on ConanCenter)
+are uploaded to a private Artifactory remote. See
 [`.github/workflows/conan-create-ros-kilted.yml`](.github/workflows/conan-create-ros-kilted.yml).
 
 ## License
