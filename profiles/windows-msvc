@@ -5,11 +5,8 @@ build_type=Release
 compiler=msvc
 compiler.cppstd=17
 compiler.runtime=dynamic
-compiler.version=195
+compiler.version=194
 
 [options]
 opencv/*:with_ffmpeg=False
 ros-kilted/*:variant=desktop
-
-[tool_requires]
-*: cmake/4.3.2
