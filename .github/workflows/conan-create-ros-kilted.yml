@@ -104,3 +104,9 @@ jobs:
           conan test recipes/ros-kilted/all/test_package ros-kilted/0.1.0
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=desktop
+
+      - name: Find and run examples
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
