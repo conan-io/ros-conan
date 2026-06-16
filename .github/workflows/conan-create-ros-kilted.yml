@@ -75,18 +75,21 @@ jobs:
           conan remote add conan-ros "$ARTIFACTORY_URL"
           conan remote login conan-ros
 
-      - name: Build ros-kilted dependencies
+      - name: Export ros-kilted recipe
+        working-directory: ${{ github.workspace }}
+        run: conan export recipes/ros-kilted/all --version=0.1.0
+
+      - name: Install ros-kilted (build missing from source)
         working-directory: ${{ github.workspace }}
         run: >
-          conan install recipes/ros-kilted/all --version=0.1.0
+          conan install --requires=ros-kilted/0.1.0
           --build=missing
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=desktop
           --format=json --out-file=install_graph.json
 
-      # Only binaries built from source in the install above (binary=Build), not
-      # Cache/Download hits pulled from ConanCenter or other remotes.
-      - name: Upload built dependencies to Artifactory
+      # Uploads every binary that built from source (binary=Build)
+      - name: Upload binaries built from source to Artifactory
         shell: bash
         working-directory: ${{ github.workspace }}
         run: |
@@ -95,9 +98,9 @@ jobs:
             conan upload --list=upload_pkglist.json -r conan-ros -c
           fi
 
-      - name: Conan create
+      - name: Run ros-kilted test_package
         working-directory: ${{ github.workspace }}
         run: >
-          conan create recipes/ros-kilted/all --version=0.1.0
+          conan test recipes/ros-kilted/all/test_package ros-kilted/0.1.0
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=desktop
