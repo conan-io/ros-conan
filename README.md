@@ -7,6 +7,17 @@ Conan recipes for building [ROS 2](https://docs.ros.org/) from source. Pull ROS 
 
 ---
 
+## Prerequisites
+
+Install Conan 2.x in a Python virtual environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install conan
+conan profile detect --force
+```
+
 ## Quick start
 
 ```bash

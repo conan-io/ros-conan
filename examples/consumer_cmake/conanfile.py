@@ -5,6 +5,7 @@ from conan.tools.cmake import CMake, cmake_layout
 class ConsumerConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps", "CMakeToolchain"
+    default_options = {"ros-kilted/*:variant": "desktop"}
 
     def layout(self):
         cmake_layout(self)
