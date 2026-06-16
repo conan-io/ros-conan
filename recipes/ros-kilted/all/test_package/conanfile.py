@@ -30,3 +30,7 @@ class TestPackageConan(ConanFile):
         bin_path = os.path.join(self.cpp.build.bindirs[0], "test_package_node")
         self.run(bin_path, env="conanrun")
         self.run("ros2 pkg list", env="conanrun")
+        self.run("ros2 node list", env="conanrun")
+        self.run("ros2 topic list", env="conanrun")
+        self.run("ros2 service list", env="conanrun")
+        self.run("ros2 action list", env="conanrun")
