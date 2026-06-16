@@ -85,7 +85,7 @@ jobs:
           conan install --requires=ros-kilted/0.1.0
           --build=missing
           --profile:all=profiles/ros
-          -o ros-kilted/*:variant=desktop
+          -o ros-kilted/*:variant=core
           --format=json --out-file=install_graph.json
 
       # Uploads every binary that built from source (binary=Build)
@@ -103,7 +103,7 @@ jobs:
         run: >
           conan test recipes/ros-kilted/all/test_package ros-kilted/0.1.0
           --profile:all=profiles/ros
-          -o ros-kilted/*:variant=desktop
+          -o ros-kilted/*:variant=core
 
       - name: Find and run examples
         shell: bash
