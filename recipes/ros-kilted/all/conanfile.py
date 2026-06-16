@@ -499,45 +499,75 @@ class Ros2KiltedConan(ConanFile):
     def finalize(self):
         """Per-consumer relocation of colcon-installed Python entry points.
 
-        Mirrors the immutable cache into the writable finalize folder
-        (``<cache>/p/b/<build_id>/f``), then:
+        Two things break on every fresh consumer host:
 
-          * POSIX: rewrites Python shebangs in ``<pkg>/bin`` to
-            ``sys.executable`` (overridable via the
-            ``user.ros2:python_executable`` conf).
-          * Windows: replaces each setuptools cli-64.exe stub in
-            ``<pkg>/Scripts`` with a thin .cmd shim that delegates to
-            ``py -3.11`` (matching the cp311 ABI tag of the built rclpy
-            extension) and falls back to ``%ROS2_PYTHON_EXECUTABLE%`` when
-            the consumer pins a specific cpython. ``%~n0`` in the .cmd
-            resolves at invocation time, so a single template generates a
-            working ``<name>.cmd → <name>-script.py`` shim for every entry.
+          1. The colcon merged-install bakes a shebang to the build-time
+             ``conan_pyenv`` (gone after the build folder is cleaned / on a
+             different machine entirely), so ``bin/ros2`` aborts with
+             ``bad interpreter`` before any Python runs.
+          2. ros2cli + rclpy import third-party pip packages
+             (``typing_extensions``, ``lark``, ``catkin_pkg``, ``numpy``,
+             ``PyYAML``, ``empy``, …) that aren't on any random consumer
+             Python.
+
+        Both are fixed by building a fresh PyEnv venv next to the install
+        tree, populating it with the same pip set used at build time, and
+        retargeting every entry point at that venv:
+
+          * The venv lives at ``<pkg>/conan_pyenv`` (PyEnv's default name).
+            Same layout the build produced, so the recipe's existing
+            ``PYTHONPATH`` / setup-hook plumbing in ``package_info`` keeps
+            working.
+          * POSIX: walk ``<pkg>/bin`` and rewrite python-style shebangs to
+            ``<pkg>/conan_pyenv/bin/python``.
+          * Windows: write a one-line ``<pkg>/Scripts/<name>.cmd`` that
+            execs ``<pkg>/conan_pyenv/Scripts/python.exe`` on the sibling
+            ``<name>-script.py``. The cli-64.exe stubs are deleted because
+            PATHEXT ranks ``.EXE`` above ``.CMD`` and they would otherwise
+            still win cmd.exe's name resolution with the broken shebang.
+
+        finalize() runs once per (package_id, host) and gets a writable,
+        per-machine folder (``<cache>/p/b/<build_id>/f``) for
+        ``self.package_folder``, which is exactly the scope this needs.
+
+        ABI assumption: the venv's python is whatever ``python3`` /
+        ``python`` is on the consumer host (or
+        ``tools.system.pyenv:python_interpreter`` conf if set). The colcon-
+        installed C extensions (``cpython-3XY-*.so`` / ``cp3XY-*.pyd``)
+        were compiled against the build-time python. Mismatched minor
+        versions will fail at C-extension import time; pin both ends via
+        ``tools.system.pyenv:python_interpreter`` if your CI uses different
+        Pythons on build vs consume.
 
         finalize() contract notes:
 
           * ``self.settings`` / ``self.options`` / ``self.cpp_info`` are
             removed inside this method (``conan/internal/graph/installer.py``
-            ``_call_finalize_method``). Use ``self.info`` instead.
+            ``_call_finalize_method``); use ``self.info`` instead.
           * ``self.conf``, ``self.output``, ``self.run`` remain available.
-          * The redirected folder is excluded from cache integrity checks, so
-            our writes survive ``conan cache check-integrity``.
+          * The redirected folder is excluded from cache integrity checks,
+            so our writes survive ``conan cache check-integrity``.
         """
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
-        py_exe = self.conf.get(
-            "user.ros2:python_executable", default=sys.executable)
+        # PyEnv defaults to env_name="conan_pyenv" and creates the venv
+        # under `folder`. It re-uses an existing venv, so finalize() being
+        # re-invoked against the same /f folder is a no-op (pip install
+        # is idempotent as well).
+        pyenv = PyEnv(self, folder=self.package_folder)
+        pyenv.install(list(PIP_BUILD_TOOLS))
 
         if str(self.info.settings.os) == "Windows":
             scripts_dir = os.path.join(self.package_folder, "Scripts")
             if not os.path.isdir(scripts_dir):
                 return
+            # PyEnv.env_exe is normalized to forward slashes; cmd.exe
+            # accepts those when the path is quoted. `%~n0` resolves to
+            # the .cmd's own basename, so one template per entry point
+            # finds its sibling `<name>-script.py` correctly.
             cmd_template = (
                 "@echo off\r\n"
-                "if defined ROS2_PYTHON_EXECUTABLE (\r\n"
-                '    "%ROS2_PYTHON_EXECUTABLE%" "%~dp0%~n0-script.py" %*\r\n'
-                ") else (\r\n"
-                '    py -3.11 "%~dp0%~n0-script.py" %*\r\n'
-                ")\r\n"
+                f'"{pyenv.env_exe}" "%~dp0%~n0-script.py" %*\r\n'
             )
             for name in os.listdir(scripts_dir):
                 if not name.endswith("-script.py"):
@@ -552,12 +582,12 @@ class Ros2KiltedConan(ConanFile):
                     os.remove(exe)
             return
 
-        # POSIX: rewrite Python shebangs in <pkg>/bin to a python that exists
-        # on this host. We only touch files whose first line starts with
-        # `#!` and mentions `python`, so /bin/sh wrappers like setup.sh stay
-        # alone. Any python-shebanged path matches, which also makes the
-        # rewrite idempotent across finalize() reruns.
-        new_shebang = f"#!{py_exe}\n".encode("utf-8")
+        # POSIX: rewrite python-style shebangs in <pkg>/bin to the venv
+        # interpreter. We only touch files whose first line starts with
+        # `#!` and mentions `python`, so /bin/sh wrappers like setup.sh
+        # stay alone. Any python-shebanged path matches, which makes the
+        # rewrite idempotent across finalize() re-runs.
+        new_shebang = f"#!{pyenv.env_exe}\n".encode("utf-8")
         bin_dir = os.path.join(self.package_folder, "bin")
         for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
             path = os.path.join(bin_dir, name)
@@ -648,15 +678,18 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
 
-        # colcon local_setup.* and ament prefix hooks embed a build-time Python path.
-        # Pre-set these so consumers (VirtualRunEnv / conanrun) override before calling
-        # local_setup.bat/ps1. Profile: ros2-kilted/*:user.ros2:python_executable=/path/to/python.exe
-        py_exe = self.conf.get("user.ros2:python_executable", default=sys.executable)
-        if py_exe:
-            self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
-            self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
-            self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
-            self.buildenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
+        # colcon local_setup.* and ament prefix hooks embed a build-time Python
+        # path. Point them at the venv finalize() materialized under
+        # <pkg>/conan_pyenv so consumers sourcing local_setup.bat/ps1/sh get
+        # the same interpreter (and the same installed pip deps) as the
+        # entry-point scripts we rewrote in finalize().
+        venv_bin = "Scripts" if str(self.settings.os) == "Windows" else "bin"
+        venv_py = "python.exe" if str(self.settings.os) == "Windows" else "python"
+        py_exe = os.path.join(p, "conan_pyenv", venv_bin, venv_py)
+        self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
+        self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
+        self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
+        self.buildenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
 
         # Consumers often use local_setup.bat; document path.
         self.conf_info.define_path("user.ros2:install_prefix", p)
