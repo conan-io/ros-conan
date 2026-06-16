@@ -26,7 +26,7 @@ that make `colcon` discover ROS 2:
 ## Prerequisites
 
 - A C++17 compiler.
-- CMake ≥ 3.22 (the [profiles](../../profiles) tool-require `cmake/3.29.3`).
+- CMake ≥ 3.22 (the [profile](../../profiles/ros) tool-requires `cmake/3.29.3`).
 - `colcon` and `catkin_pkg` available on `PATH`:
 
   ```bash
@@ -43,7 +43,7 @@ that make `colcon` discover ROS 2:
 From this directory:
 
 ```bash
-conan install . --profile=../../profiles/windows-msvc --build=missing
+conan install . --profile=../../profiles/ros --build=missing
 ```
 
 Activate the Conan-generated ROS environment and let `colcon` drive the rest:

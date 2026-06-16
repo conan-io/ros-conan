@@ -27,18 +27,18 @@ See [`src/main.cpp`](src/main.cpp).
 
 ## Prerequisites
 
-- A C++17 compiler (MSVC 19.4 / apple-clang 21 / GCC 11+ ...).
-- CMake ≥ 3.22 (the [profiles](../../profiles) tool-require `cmake/3.29.3`).
+- A C++17 compiler.
+- CMake ≥ 3.22 (the [profile](../../profiles/ros) tool-requires `cmake/3.29.3`).
 - A Conan remote that exposes `ros-kilted` — see the
-  [main README](../../README.md#usage).
+  [main README](../../README.md#quick-start).
 
 ## Build & run
 
 From this directory:
 
 ```bash
-conan install . --profile=../../profiles/windows-msvc --build=missing
-conan build   . --profile=../../profiles/windows-msvc
+conan install . --profile=../../profiles/ros --build=missing
+conan build   . --profile=../../profiles/ros
 ```
 
 Then run the binary produced by `cmake_layout()`:

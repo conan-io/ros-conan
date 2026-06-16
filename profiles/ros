@@ -1,0 +1,18 @@
+include(default)
+
+[settings]
+compiler.cppstd=17
+
+{% if platform.system() == "Windows" %}
+[options]
+opencv/*:with_ffmpeg=False
+{% endif %}
+
+[tool_requires]
+*: cmake/3.29.3
+
+{% if platform.system() == "Linux" %}
+[conf]
+tools.system.package_manager:mode=install
+tools.system.package_manager:sudo=True
+{% endif %}
