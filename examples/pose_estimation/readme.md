@@ -32,14 +32,14 @@ skeleton extracted from a video stream. The skeleton can be visualised live in `
 
 - A C++17 compiler, CMake ≥ 3.15.
 - A Conan remote that exposes `ros-kilted` — see the
-  [main README](../../README.md#usage).
+  [main README](../../README.md#quick-start).
 
 ## Build
 
 From this directory:
 
 ```bash
-conan install . --profile=../../profiles/windows-msvc --build=missing
+conan install . --profile=../../profiles/ros -o ros-kilted/*:variant=desktop --build=missing
 ```
 
 **Windows (cmd):**

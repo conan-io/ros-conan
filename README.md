@@ -43,13 +43,22 @@ ros2 pkg list
 | `desktop`            | Adds rviz2, demo nodes, visualization tools.                     |
 | `desktop_full` (WIP) | Adds simulation and perception stacks.                           |
 
+To build a different variant, pass the variant option with `-o`:
+
+```bash
+conan install --requires=ros-kilted/0.1.0 \
+    --profile=ros-conan/profiles/ros \
+    -o ros-kilted/*:variant=desktop \
+    --build=missing
+```
+
 ## Recipes
 
 | Package             | Description                                         |
 | ------------------- | --------------------------------------------------- |
-| `ros-kilted`        | ROS 2 Kilted built from source as a single package. |
-| `orocos_kdl`        | Orocos KDL C++ library.                             |
-| `python_orocos_kdl` | PyKDL, Python bindings for Orocos KDL.              |
+| [`ros-kilted`](recipes/ros-kilted/all/conanfile.py)        | ROS 2 Kilted built from source as a single package. |
+| [`orocos_kdl`](recipes/orocos_kdl/all/conanfile.py)        | Orocos KDL C++ library.                             |
+| [`python_orocos_kdl`](recipes/python_orocos_kdl/all/conanfile.py) | PyKDL, Python bindings for Orocos KDL.              |
 
 `orocos_kdl` and `python_orocos_kdl` are not in ConanCenter and are required by `ros-kilted`.
 
