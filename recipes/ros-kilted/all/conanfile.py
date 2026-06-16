@@ -496,6 +496,80 @@ class Ros2KiltedConan(ConanFile):
             raise ConanException(f"No merged install found at {inst}")
         copy(self, "*", src=inst, dst=self.package_folder)
 
+    def finalize(self):
+        """Per-consumer relocation of colcon-installed Python entry points.
+
+        Mirrors the immutable cache into the writable finalize folder
+        (``<cache>/p/b/<build_id>/f``), then:
+
+          * POSIX: rewrites Python shebangs in ``<pkg>/bin`` to
+            ``sys.executable`` (overridable via the
+            ``user.ros2:python_executable`` conf).
+          * Windows: replaces each setuptools cli-64.exe stub in
+            ``<pkg>/Scripts`` with a thin .cmd shim that delegates to
+            ``py -3.11`` (matching the cp311 ABI tag of the built rclpy
+            extension) and falls back to ``%ROS2_PYTHON_EXECUTABLE%`` when
+            the consumer pins a specific cpython. ``%~n0`` in the .cmd
+            resolves at invocation time, so a single template generates a
+            working ``<name>.cmd → <name>-script.py`` shim for every entry.
+
+        finalize() contract notes:
+
+          * ``self.settings`` / ``self.options`` / ``self.cpp_info`` are
+            removed inside this method (``conan/internal/graph/installer.py``
+            ``_call_finalize_method``). Use ``self.info`` instead.
+          * ``self.conf``, ``self.output``, ``self.run`` remain available.
+          * The redirected folder is excluded from cache integrity checks, so
+            our writes survive ``conan cache check-integrity``.
+        """
+        copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
+
+        py_exe = self.conf.get(
+            "user.ros2:python_executable", default=sys.executable)
+
+        if str(self.info.settings.os) == "Windows":
+            scripts_dir = os.path.join(self.package_folder, "Scripts")
+            if not os.path.isdir(scripts_dir):
+                return
+            cmd_template = (
+                "@echo off\r\n"
+                "if defined ROS2_PYTHON_EXECUTABLE (\r\n"
+                '    "%ROS2_PYTHON_EXECUTABLE%" "%~dp0%~n0-script.py" %*\r\n'
+                ") else (\r\n"
+                '    py -3.11 "%~dp0%~n0-script.py" %*\r\n'
+                ")\r\n"
+            )
+            for name in os.listdir(scripts_dir):
+                if not name.endswith("-script.py"):
+                    continue
+                entry = name[:-len("-script.py")]
+                save(self, os.path.join(scripts_dir, entry + ".cmd"),
+                     cmd_template)
+                # PATHEXT prefers .EXE over .CMD; drop the broken stub so
+                # cmd.exe resolves `ros2` to our shim instead.
+                exe = os.path.join(scripts_dir, entry + ".exe")
+                if os.path.isfile(exe):
+                    os.remove(exe)
+            return
+
+        # POSIX: rewrite Python shebangs in <pkg>/bin to a python that exists
+        # on this host. We only touch files whose first line starts with
+        # `#!` and mentions `python`, so /bin/sh wrappers like setup.sh stay
+        # alone. Any python-shebanged path matches, which also makes the
+        # rewrite idempotent across finalize() reruns.
+        new_shebang = f"#!{py_exe}\n".encode("utf-8")
+        bin_dir = os.path.join(self.package_folder, "bin")
+        for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
+            path = os.path.join(bin_dir, name)
+            if not os.path.isfile(path) or os.path.islink(path):
+                continue
+            with open(path, "rb") as f:
+                data = f.read()
+            head, sep, rest = data.partition(b"\n")
+            if sep and head.startswith(b"#!") and b"python" in head:
+                with open(path, "wb") as f:
+                    f.write(new_shebang + rest)
+
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
         p = self.package_folder
