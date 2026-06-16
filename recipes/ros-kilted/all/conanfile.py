@@ -239,7 +239,7 @@ class Ros2KiltedConan(ConanFile):
         self.tool_requires("cmake/3.28.5")
         # self.tool_requires("cppcheck/2.15.0")  # see requirements() comment: missing binary for profile
         self.tool_requires("uncrustify/0.78.1")
-        if self.settings.os == "Windows":
+        if self.settings.os == "Windows" and self.settings.arch == "x86_64":
             self.tool_requires("7zip/23.01")
 
     def system_requirements(self):
@@ -490,11 +490,43 @@ class Ros2KiltedConan(ConanFile):
         )
         self.run(cmd, env="conanbuild")
 
+    _INSTALL_PLACEHOLDER = "@CONAN_ROS_PREFIX@"
+
     def package(self):
         inst = os.path.join(self.build_folder, "install")
         if not os.path.isdir(inst):
             raise ConanException(f"No merged install found at {inst}")
         copy(self, "*", src=inst, dst=self.package_folder)
+        # Replace the build-time PyEnv shebang with a portable interpreter.
+        bin_dir = os.path.join(self.package_folder, "bin")
+        if os.path.isdir(bin_dir):
+            for fname in os.listdir(bin_dir):
+                fpath = os.path.join(bin_dir, fname)
+                if not os.path.isfile(fpath) or os.path.islink(fpath):
+                    continue
+                try:
+                    with open(fpath, "rb") as fh:
+                        first_line = fh.read(256).split(b"\n")[0]
+                    if first_line.startswith(b"#!") and b"python" in first_line.lower():
+                        replace_in_file(self, fpath,
+                            first_line.decode("utf-8", errors="replace"),
+                            "#!/usr/bin/env python3", strict=False)
+                except OSError:
+                    pass
+        # Stamp the install prefix with a placeholder so finalize() needs no heuristics.
+        for pattern in ("**/*.cmake", "**/*.sh", "**/*.bat", "**/*.ps1", "**/*.pc"):
+            for fpath in glob.glob(os.path.join(self.package_folder, pattern), recursive=True):
+                if os.path.isfile(fpath) and not os.path.islink(fpath):
+                    replace_in_file(self, fpath, inst, self._INSTALL_PLACEHOLDER, strict=False)
+
+    # Relocatability fix (Conan >= 2.7.0): stamp the placeholder with the actual
+    # package folder path on the consumer machine.
+    def finalize(self):
+        copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
+        for pattern in ("**/*.cmake", "**/*.sh", "**/*.bat", "**/*.ps1", "**/*.pc"):
+            for fpath in glob.glob(os.path.join(self.package_folder, pattern), recursive=True):
+                if os.path.isfile(fpath) and not os.path.islink(fpath):
+                    replace_in_file(self, fpath, self._INSTALL_PLACEHOLDER, self.package_folder, strict=False)
 
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
