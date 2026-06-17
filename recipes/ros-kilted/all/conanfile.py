@@ -534,11 +534,7 @@ class Ros2KiltedConan(ConanFile):
                     os.remove(exe)
             return
 
-        # POSIX: rewrite python-style shebangs in <pkg>/bin to the venv
-        # interpreter. We only touch files whose first line starts with
-        # `#!` and mentions `python`, so /bin/sh wrappers like setup.sh
-        # stay alone. Any python-shebanged path matches, which makes the
-        # rewrite idempotent across finalize() re-runs.
+        # POSIX: rewrite python-style shebangs
         new_shebang = f"#!{pyenv.env_exe}\n".encode("utf-8")
         bin_dir = os.path.join(self.package_folder, "bin")
         for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
