@@ -2,9 +2,17 @@ name: Conan create ros-kilted
 
 on:
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
+      - '.gitignore'
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
+      - '.gitignore'
 
 jobs:
   conan-create:
@@ -74,6 +82,9 @@ jobs:
         run: |
           conan remote add conan-ros "$ARTIFACTORY_URL"
           conan remote login conan-ros
+
+      - name: Show ros-kilted revisions in Artifactory
+        run: conan list "ros-kilted/0.1.0#*:*" -r=conan-ros
 
       - name: Export ros-kilted recipe
         working-directory: ${{ github.workspace }}
