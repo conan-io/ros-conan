@@ -9,14 +9,17 @@ Conan recipes for building [ROS 2](https://docs.ros.org/) from source. Pull ROS 
 
 ## Prerequisites
 
-Install Conan 2.x in a Python virtual environment:
+- **Install/use Python 3.12**
+  [REP-2000](https://github.com/ros2/ros2_documentation/blob/kilted/source/Releases/Release-Kilted-Kaiju.rst#id22) lists the 3.12.3 Python version as the reference version on the Tier 1 platforms.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install conan
-conan profile detect --force
-```
+- **Install Conan 2 in a Python virtual environment**:
+
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate  # Windows: .venv\Scripts\activate
+  pip install conan
+  conan profile detect --force
+  ```
 
 ## Quick start
 
