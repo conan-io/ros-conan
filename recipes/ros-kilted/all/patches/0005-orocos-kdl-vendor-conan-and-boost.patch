@@ -22,7 +22,7 @@
 +endif()
  
  if(NOT CMAKE_CXX_STANDARD)
-   # orocos_kdl uses some deprecated APIs in C++17, so we set this to C++17
+   # orocos_kdl uses some deprecated APIs in C++17, so we set this to C++11
 --- src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
 +++ src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
 @@ -12,7 +12,23 @@

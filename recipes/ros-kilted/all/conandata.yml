@@ -1,11 +1,14 @@
 sources:
+  # Consider matching the recipe version to the snapshot date (e.g. 20250728)
   "0.1.0":
-    url: "https://raw.githubusercontent.com/ros2/ros2/kilted/ros2.repos"
-    sha256: "7e362e761e334250c8e3a278397e634bdcf3d235c39b655a74ff174ab6215525"
-    # ros2/variants metapackages (not in ros2.repos). Bump in lockstep with the snapshot above.
+    url: "https://raw.githubusercontent.com/ros2/ros2/release-kilted-20250728/ros2.repos"
+    sha256: "2ee28764efa0b6dd1dbe90607986387c9d668b186bfac0edbabdd9c5ee834d1b"
+    # To find the ros2/variants metapackages tag (not in ros2.repos) that matches the snapshot above:
+    #   https://raw.githubusercontent.com/ros/rosdistro/master/kilted/distribution.yaml
+    #   -> variants.release.version (e.g. "0.12.0-2"; strip the "-N" bloom suffix).
     variants:
-      url: "https://github.com/ros2/variants/archive/e358bccb2edde3b681e898bf7fa8e157634f6e50.tar.gz"
-      sha256: "679737de544e9304d96779d95d60f29a8514d9a35987747b8a8e7296cd7a01be"
+      url: "https://github.com/ros2/variants/archive/refs/tags/0.12.0.tar.gz"
+      sha256: "5089bf2dea8368020243d40a2b513405cd060aacc42de6fae2289c1a87f74f99"
 
 patches:
   "0.1.0":
@@ -23,8 +26,6 @@ patches:
       patch_description: rviz_ogre_vendor - forward CMP0091 and CMAKE_MSVC_RUNTIME_LIBRARY into OGRE ExternalProject (Codec_Assimp LNK2038)
     - patch_file: patches/0007-python-orocos-kdl-vendor-conan-and-apple.patch
       patch_description: python_orocos_kdl_vendor - prefer Conan python_orocos_kdl CMake package; strip py::hash(py::self) on Apple when building PyKDL from FetchContent
-    - patch_file: patches/0008-foonathan-memory-vendor-use-conan.patch
-      patch_description: foonathan_memory_vendor - use find_package(foonathan_memory) so Conan's package is picked up (upstream subprocess check ignores CMAKE_PREFIX_PATH)
     - patch_file: patches/0009-mcap-vendor-use-conan.patch
       patch_description: mcap_vendor - replace FetchContent of foxglove/mcap with find_package(mcap) (CCI mcap)
     - patch_file: patches/0010-rviz-ogre-vendor-extras-conan-zlib-windows.patch
@@ -35,3 +36,5 @@ patches:
       patch_description: gz_utils_vendor - prepend <install>/opt/gz_utils_vendor in extras so downstream vendor ExternalProject configs can resolve find_package(gz-utils3) on Windows
     - patch_file: patches/0013-gz-math-vendor-extras-prepend-opt-prefix.patch
       patch_description: gz_math_vendor - prepend <install>/opt/gz_math_vendor in extras so downstream vendor ExternalProject configs can resolve find_package(gz-math8) on Windows
+    - patch_file: patches/0014-iceoryx-hoofs-time-include-chrono.patch
+      patch_description: iceoryx_hoofs - explicit #include <chrono> in win/source/time.cpp (MSVC 17.13+ no longer transitively pulls in std::chrono::system_clock; iceoryx upstream PR #2378 not backported to v2.0.5)
