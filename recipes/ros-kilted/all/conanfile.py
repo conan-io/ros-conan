@@ -506,10 +506,6 @@ class Ros2KiltedConan(ConanFile):
 """
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
-        # PyEnv defaults to env_name="conan_pyenv" and creates the venv
-        # under `folder`. It re-uses an existing venv, so finalize() being
-        # re-invoked against the same /f folder is a no-op (pip install
-        # is idempotent as well).
         pyenv = PyEnv(self, folder=self.package_folder)
         pyenv.install(list(PIP_BUILD_TOOLS))
 
