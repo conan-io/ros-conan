@@ -513,10 +513,6 @@ class Ros2KiltedConan(ConanFile):
             scripts_dir = os.path.join(self.package_folder, "Scripts")
             if not os.path.isdir(scripts_dir):
                 return
-            # PyEnv.env_exe is normalized to forward slashes; cmd.exe
-            # accepts those when the path is quoted. `%~n0` resolves to
-            # the .cmd's own basename, so one template per entry point
-            # finds its sibling `<name>-script.py` correctly.
             cmd_template = (
                 "@echo off\r\n"
                 f'"{pyenv.env_exe}" "%~dp0%~n0-script.py" %*\r\n'
