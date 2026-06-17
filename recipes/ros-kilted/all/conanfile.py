@@ -1,6 +1,5 @@
 import glob
 import os
-import sys
 
 from conan import ConanFile
 from conan.errors import ConanException
