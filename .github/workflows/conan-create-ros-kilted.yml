@@ -84,7 +84,7 @@ jobs:
           conan remote login conan-ros
 
       - name: Show ros-kilted revisions in Artifactory
-        run: conan list "ros-kilted/0.1.0#*:*" -r=conan-ros
+        run: conan list "ros-kilted/0.1.0#*:*" -r=conan-ros -f=compact
 
       - name: Export ros-kilted recipe
         working-directory: ${{ github.workspace }}
