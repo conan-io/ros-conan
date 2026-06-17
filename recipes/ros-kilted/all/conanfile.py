@@ -497,57 +497,13 @@ class Ros2KiltedConan(ConanFile):
         copy(self, "*", src=inst, dst=self.package_folder)
 
     def finalize(self):
-        """Per-consumer relocation of colcon-installed Python entry points.
-
-        Two things break on every fresh consumer host:
-
-          1. The colcon merged-install bakes a shebang to the build-time
-             ``conan_pyenv`` (gone after the build folder is cleaned / on a
-             different machine entirely), so ``bin/ros2`` aborts with
-             ``bad interpreter`` before any Python runs.
-          2. ros2cli + rclpy import third-party pip packages
-             (``typing_extensions``, ``lark``, ``catkin_pkg``, ``numpy``,
-             ``PyYAML``, ``empy``, …) that aren't on any random consumer
-             Python.
-
-        Both are fixed by building a fresh PyEnv venv next to the install
-        tree, populating it with the same pip set used at build time, and
-        retargeting every entry point at that venv:
-
-          * The venv lives at ``<pkg>/conan_pyenv`` (PyEnv's default name).
-            Same layout the build produced, so the recipe's existing
-            ``PYTHONPATH`` / setup-hook plumbing in ``package_info`` keeps
-            working.
-          * POSIX: walk ``<pkg>/bin`` and rewrite python-style shebangs to
-            ``<pkg>/conan_pyenv/bin/python``.
-          * Windows: write a one-line ``<pkg>/Scripts/<name>.cmd`` that
-            execs ``<pkg>/conan_pyenv/Scripts/python.exe`` on the sibling
-            ``<name>-script.py``. The cli-64.exe stubs are deleted because
-            PATHEXT ranks ``.EXE`` above ``.CMD`` and they would otherwise
-            still win cmd.exe's name resolution with the broken shebang.
-
-        finalize() runs once per (package_id, host) and gets a writable,
-        per-machine folder (``<cache>/p/b/<build_id>/f``) for
-        ``self.package_folder``, which is exactly the scope this needs.
-
-        ABI assumption: the venv's python is whatever ``python3`` /
-        ``python`` is on the consumer host (or
-        ``tools.system.pyenv:python_interpreter`` conf if set). The colcon-
-        installed C extensions (``cpython-3XY-*.so`` / ``cp3XY-*.pyd``)
-        were compiled against the build-time python. Mismatched minor
-        versions will fail at C-extension import time; pin both ends via
-        ``tools.system.pyenv:python_interpreter`` if your CI uses different
-        Pythons on build vs consume.
-
-        finalize() contract notes:
-
-          * ``self.settings`` / ``self.options`` / ``self.cpp_info`` are
-            removed inside this method (``conan/internal/graph/installer.py``
-            ``_call_finalize_method``); use ``self.info`` instead.
-          * ``self.conf``, ``self.output``, ``self.run`` remain available.
-          * The redirected folder is excluded from cache integrity checks,
-            so our writes survive ``conan cache check-integrity``.
-        """
+        """Per-consumer relocation of colcon-installed Python entry points: builds a fresh PyEnv venv
+        at ``<pkg>/conan_pyenv`` with the build-time pip set, then retargets entry points (POSIX
+        rewrites shebangs in ``bin/``; Windows writes ``Scripts/<name>.cmd`` shims and removes
+        cli-64.exe stubs that PATHEXT would otherwise rank above ``.CMD``). Runs in finalize() so each
+        (package_id, host) gets a writable per-machine folder. Caveat: venv python's minor version must
+        match the build-time interpreter or C-extensions fail; pin via ``tools.system.pyenv:python_interpreter``.
+"""
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
         # PyEnv defaults to env_name="conan_pyenv" and creates the venv
