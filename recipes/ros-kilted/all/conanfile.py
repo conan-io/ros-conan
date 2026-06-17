@@ -634,11 +634,6 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
 
-        # colcon local_setup.* and ament prefix hooks embed a build-time Python
-        # path. Point them at the venv finalize() materialized under
-        # <pkg>/conan_pyenv so consumers sourcing local_setup.bat/ps1/sh get
-        # the same interpreter (and the same installed pip deps) as the
-        # entry-point scripts we rewrote in finalize().
         venv_bin = "Scripts" if str(self.settings.os) == "Windows" else "bin"
         venv_py = "python.exe" if str(self.settings.os) == "Windows" else "python"
         py_exe = os.path.join(p, "conan_pyenv", venv_bin, venv_py)
