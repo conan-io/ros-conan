@@ -26,8 +26,6 @@ patches:
       patch_description: rviz_ogre_vendor - forward CMP0091 and CMAKE_MSVC_RUNTIME_LIBRARY into OGRE ExternalProject (Codec_Assimp LNK2038)
     - patch_file: patches/0007-python-orocos-kdl-vendor-conan-and-apple.patch
       patch_description: python_orocos_kdl_vendor - prefer Conan python_orocos_kdl CMake package; strip py::hash(py::self) on Apple when building PyKDL from FetchContent
-    - patch_file: patches/0008-foonathan-memory-vendor-use-conan.patch
-      patch_description: foonathan_memory_vendor - use find_package(foonathan_memory) so Conan's package is picked up (upstream subprocess check ignores CMAKE_PREFIX_PATH)
     - patch_file: patches/0009-mcap-vendor-use-conan.patch
       patch_description: mcap_vendor - replace FetchContent of foxglove/mcap with find_package(mcap) (CCI mcap)
     - patch_file: patches/0010-rviz-ogre-vendor-extras-conan-zlib-windows.patch
