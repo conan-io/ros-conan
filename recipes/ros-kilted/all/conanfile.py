@@ -496,6 +496,54 @@ class Ros2KiltedConan(ConanFile):
             raise ConanException(f"No merged install found at {inst}")
         copy(self, "*", src=inst, dst=self.package_folder)
 
+    def finalize(self):
+        """Per-consumer relocation of colcon-installed Python entry points: builds a fresh PyEnv venv
+        at ``<pkg>/conan_pyenv`` with the build-time pip set, then retargets entry points (POSIX
+        rewrites shebangs in ``bin/``; Windows writes ``Scripts/<name>.cmd`` shims and removes
+        cli-64.exe stubs that PATHEXT would otherwise rank above ``.CMD``). Runs in finalize() so each
+        (package_id, host) gets a writable per-machine folder. Caveat: venv python's minor version must
+        match the build-time interpreter or C-extensions fail; pin via ``tools.system.pyenv:python_interpreter``.
+"""
+        copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
+
+        pyenv = PyEnv(self, folder=self.package_folder)
+        pyenv.install(list(PIP_BUILD_TOOLS))
+
+        if str(self.info.settings.os) == "Windows":
+            scripts_dir = os.path.join(self.package_folder, "Scripts")
+            if not os.path.isdir(scripts_dir):
+                return
+            cmd_template = (
+                "@echo off\r\n"
+                f'"{pyenv.env_exe}" "%~dp0%~n0-script.py" %*\r\n'
+            )
+            for name in os.listdir(scripts_dir):
+                if not name.endswith("-script.py"):
+                    continue
+                entry = name[:-len("-script.py")]
+                save(self, os.path.join(scripts_dir, entry + ".cmd"),
+                     cmd_template)
+                # PATHEXT prefers .EXE over .CMD; drop the broken stub so
+                # cmd.exe resolves `ros2` to our shim instead.
+                exe = os.path.join(scripts_dir, entry + ".exe")
+                if os.path.isfile(exe):
+                    os.remove(exe)
+            return
+
+        # POSIX: rewrite python-style shebangs
+        new_shebang = f"#!{pyenv.env_exe}\n".encode("utf-8")
+        bin_dir = os.path.join(self.package_folder, "bin")
+        for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
+            path = os.path.join(bin_dir, name)
+            if not os.path.isfile(path) or os.path.islink(path):
+                continue
+            with open(path, "rb") as f:
+                data = f.read()
+            head, sep, rest = data.partition(b"\n")
+            if sep and head.startswith(b"#!") and b"python" in head:
+                with open(path, "wb") as f:
+                    f.write(new_shebang + rest)
+
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
         p = self.package_folder
@@ -574,15 +622,13 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
 
-        # colcon local_setup.* and ament prefix hooks embed a build-time Python path.
-        # Pre-set these so consumers (VirtualRunEnv / conanrun) override before calling
-        # local_setup.bat/ps1. Profile: ros2-kilted/*:user.ros2:python_executable=/path/to/python.exe
-        py_exe = self.conf.get("user.ros2:python_executable", default=sys.executable)
-        if py_exe:
-            self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
-            self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
-            self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
-            self.buildenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
+        venv_bin = "Scripts" if str(self.settings.os) == "Windows" else "bin"
+        venv_py = "python.exe" if str(self.settings.os) == "Windows" else "python"
+        py_exe = os.path.join(p, "conan_pyenv", venv_bin, venv_py)
+        self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
+        self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
+        self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
+        self.buildenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
 
         # Consumers often use local_setup.bat; document path.
         self.conf_info.define_path("user.ros2:install_prefix", p)
