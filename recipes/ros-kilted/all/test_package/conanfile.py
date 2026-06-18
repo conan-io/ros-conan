@@ -47,10 +47,15 @@ class TestPackageConan(ConanFile):
                 f'"{conan_py}" -c "print(\'importing _rclpy_pybind11...\'); '
                 'import rclpy._rclpy_pybind11; print(\'ok\')"',
                 env="conanrun")
-            # Step 3: full rclpy + RMW identifier
+            # Step 3: full rclpy + RMW identifier (no DDS participant yet)
             self.run(
                 f'"{conan_py}" -c "import rclpy; '
                 'print(\'RMW impl:\', rclpy.get_rmw_implementation_identifier())"',
+                env="conanrun")
+            # Step 4: rclpy.init() actually creates a DDS domain participant — crash likely here
+            self.run(
+                f'"{conan_py}" -c "import rclpy; rclpy.init(); '
+                'print(\'rclpy.init() ok\'); rclpy.shutdown()"',
                 env="conanrun")
         self.run("ros2 node list", env="conanrun")
         self.run("ros2 topic list", env="conanrun")
