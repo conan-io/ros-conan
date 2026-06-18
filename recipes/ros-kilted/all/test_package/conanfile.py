@@ -10,17 +10,20 @@ from conan.tools.cmake import CMake, cmake_layout
 # plain UDPv4 only. Written to disk and pointed at via FASTDDS_DEFAULT_PROFILES_FILE.
 _FASTDDS_NO_SHM_PROFILE = """\
 <?xml version="1.0" encoding="UTF-8" ?>
-<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+<profiles>
     <transport_descriptors>
         <transport_descriptor>
-            <transport_id>UDPv4Only</transport_id>
+            <transport_id>LoopbackUDP</transport_id>
             <type>UDPv4</type>
+            <interfaceWhiteList>
+                <address>127.0.0.1</address>
+            </interfaceWhiteList>
         </transport_descriptor>
     </transport_descriptors>
     <participant profile_name="default_profile" is_default_profile="true">
         <rtps>
             <userTransports>
-                <transport_id>UDPv4Only</transport_id>
+                <transport_id>LoopbackUDP</transport_id>
             </userTransports>
             <useBuiltinTransports>false</useBuiltinTransports>
         </rtps>
@@ -61,7 +64,10 @@ class TestPackageConan(ConanFile):
             profile_path = os.path.join(self.build_folder, "fastdds_no_shm.xml")
             with open(profile_path, "w") as f:
                 f.write(_FASTDDS_NO_SHM_PROFILE)
-            prefix = f'set "FASTDDS_DEFAULT_PROFILES_FILE={profile_path}" && '
+            prefix = (
+                f'set "FASTDDS_DEFAULT_PROFILES_FILE={profile_path}" && '
+                'set "ROS_LOCALHOST_ONLY=1" && '
+            )
             self.run(f"{prefix}ros2 node list", env="conanrun")
             self.run(f"{prefix}ros2 topic list", env="conanrun")
             self.run(f"{prefix}ros2 service list", env="conanrun")
