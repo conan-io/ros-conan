@@ -509,6 +509,23 @@ class Ros2KiltedConan(ConanFile):
         pyenv.install(list(PIP_BUILD_TOOLS))
 
         if str(self.info.settings.os) == "Windows":
+            # JUST TO TEST REMOVE LATER!!!
+            # sitecustomize.py is executed by Python at startup before any user code.
+            # It preloads the correct MSVC runtime DLLs from System32 with a full path so
+            # that subsequent LoadLibrary("msvcp140.dll") calls (from any DLL or package
+            # that iterates PATH via os.add_dll_directory) return the already-loaded System32
+            # module instead of Service Fabric's incompatible copy, which is present on
+            # GitHub Actions Windows 2022 runners and causes a crash inside rcl_init().
+            site_pkgs = os.path.join(pyenv.env_dir, "Lib", "site-packages")
+            save(self, os.path.join(site_pkgs, "sitecustomize.py"),
+                 "import ctypes, os\n"
+                 "_s32 = os.path.join(os.environ.get('SystemRoot', r'C:\\Windows'), 'System32')\n"
+                 "for _dll in ('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll'):\n"
+                 "    _p = os.path.join(_s32, _dll)\n"
+                 "    if os.path.exists(_p):\n"
+                 "        try: ctypes.windll.LoadLibrary(_p)\n"
+                 "        except OSError: pass\n")
+
             scripts_dir = os.path.join(self.package_folder, "Scripts")
             if not os.path.isdir(scripts_dir):
                 return
@@ -563,6 +580,13 @@ class Ros2KiltedConan(ConanFile):
         self.buildenv_info.prepend_path("COLCON_PREFIX_PATH", p)
 
         # Run PATH: rely on cpp_info.bindirs + VirtualRunEnv (see package_type); avoids duplicating PATH here.
+        # On Windows, some CI environments (e.g. GitHub Actions with Service Fabric installed) have a
+        # third-party msvcp140.dll earlier in PATH than C:\Windows\System32. That incompatible copy
+        # causes an access violation inside rcl_init(). Prepending System32 here ensures the correct
+        # MSVC runtime is always found first, regardless of the user's PATH order.
+        if self.settings.os == "Windows":
+            system32 = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32")
+            self.runenv_info.prepend_path("PATH", system32)
         self.runenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.runenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
