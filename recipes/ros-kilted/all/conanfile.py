@@ -429,8 +429,6 @@ class Ros2KiltedConan(ConanFile):
         replace_in_file(self, path, block, injection, strict=True)
 
     def source(self):
-        pyenv = PyEnv(self, folder=self.source_folder)
-        pyenv.install(["setuptools==68.1.2", "vcstool==0.3.0"])
         sources_data = self.conan_data["sources"][str(self.version)]
         repos = os.path.join(self.source_folder, "ros2.repos")
         download(self, url=sources_data["url"], sha256=sources_data["sha256"], filename=repos)
@@ -506,7 +504,8 @@ class Ros2KiltedConan(ConanFile):
 """
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
-        pyenv = PyEnv(self, folder=self.package_folder)
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+        pyenv = PyEnv(self, folder=self.package_folder, py_version=py_ver)
         pyenv.install(list(PIP_BUILD_TOOLS))
 
         if str(self.info.settings.os) == "Windows":
@@ -553,11 +552,10 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
-        self.buildenv_info.append_path("AMENT_PREFIX_PATH", p)
+        self.buildenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.buildenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
             self.buildenv_info.prepend_path("PYTHONPATH", site)
-        self.buildenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.buildenv_info.prepend_path("CMAKE_PREFIX_PATH", p)
         self.buildenv_info.define("ROS_DISTRO", "kilted")
         self.buildenv_info.define("ROS_VERSION", "2")
@@ -565,11 +563,10 @@ class Ros2KiltedConan(ConanFile):
         self.buildenv_info.prepend_path("COLCON_PREFIX_PATH", p)
 
         # Run PATH: rely on cpp_info.bindirs + VirtualRunEnv (see package_type); avoids duplicating PATH here.
-        self.runenv_info.append_path("AMENT_PREFIX_PATH", p)
+        self.runenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.runenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
             self.runenv_info.prepend_path("PYTHONPATH", site)
-        self.runenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.runenv_info.prepend_path("CMAKE_PREFIX_PATH", p)
         self.runenv_info.define("ROS_DISTRO", "kilted")
         self.runenv_info.define("ROS_VERSION", "2")
@@ -624,7 +621,8 @@ class Ros2KiltedConan(ConanFile):
 
         venv_bin = "Scripts" if str(self.settings.os) == "Windows" else "bin"
         venv_py = "python.exe" if str(self.settings.os) == "Windows" else "python"
-        py_exe = os.path.join(p, "conan_pyenv", venv_bin, venv_py)
+        py_ver = f"{sys.version_info.major}_{sys.version_info.minor}"
+        py_exe = os.path.join(p, f"conan_pyenv_{py_ver}", venv_bin, venv_py)
         self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
         self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
         self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
