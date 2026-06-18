@@ -61,8 +61,7 @@ class TestPackageConan(ConanFile):
             profile_path = os.path.join(self.build_folder, "fastdds_no_shm.xml")
             with open(profile_path, "w") as f:
                 f.write(_FASTDDS_NO_SHM_PROFILE)
-            p = profile_path.replace("\\", "\\\\")
-            prefix = f"set FASTDDS_DEFAULT_PROFILES_FILE={p} && "
+            prefix = f'set "FASTDDS_DEFAULT_PROFILES_FILE={profile_path}" && '
             self.run(f"{prefix}ros2 node list", env="conanrun")
             self.run(f"{prefix}ros2 topic list", env="conanrun")
             self.run(f"{prefix}ros2 service list", env="conanrun")
