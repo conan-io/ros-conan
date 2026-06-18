@@ -46,9 +46,14 @@ class TestPackageConan(ConanFile):
             self.run(f'"{python_exe}" -c "import sys; print(sys.executable); print(sys.version)"',
                      env="conanrun")
 
-            # Fast-DDS crashes on Windows CI with 0xC0000005 before reading any XML
-            # profile (SHM transport global-static init). CycloneDDS has no such issue.
+            # Direct rclpy.init() with faulthandler to see exact crash location.
+            # -Xfaulthandler prints the C/Python stack when an access violation occurs.
             prefix = 'set "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" && '
+            self.run(
+                f'{prefix}"{python_exe}" -Xfaulthandler -c '
+                '"import rclpy; rclpy.init(); print(chr(79)*3); rclpy.shutdown()" '
+                '|| echo [diag] rclpy.init FAILED',
+                env="conanrun")
             self.run(f"{prefix}ros2 node list", env="conanrun")
             self.run(f"{prefix}ros2 topic list", env="conanrun")
             self.run(f"{prefix}ros2 service list", env="conanrun")
