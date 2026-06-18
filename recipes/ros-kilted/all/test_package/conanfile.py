@@ -51,14 +51,20 @@ class TestPackageConan(ConanFile):
             diag_script = os.path.join(self.build_folder, "diag_rclpy.py")
             with open(diag_script, "w") as _f:
                 _f.write(
-                    "import rclpy._rclpy_pybind11 as m\n"
-                    "print('module attrs:', [a for a in dir(m) if not a.startswith('_')])\n"
-                    "ctx = m.Context()\n"
-                    "print('Context attrs:', [a for a in dir(ctx) if not a.startswith('_')])\n"
-                    "for attr in dir(ctx):\n"
-                    "    doc = getattr(type(ctx), attr, None)\n"
-                    "    if doc and callable(doc):\n"
-                    "        print(f'  {attr}: {(getattr(doc, \"__doc__\", \"\") or \"\")[:120]}')\n"
+                    "import sys\n"
+                    "print('exe:', sys.executable)\n"
+                    "import rclpy\n"
+                    "print('rclpy imported OK')\n"
+                    "print('Testing init(initialize_logging=False)...')\n"
+                    "rclpy.init(args=[], initialize_logging=False)\n"
+                    "print('init(logging=False) OK')\n"
+                    "rclpy.shutdown()\n"
+                    "print('shutdown OK')\n"
+                    "print('Testing init(initialize_logging=True)...')\n"
+                    "rclpy.init(args=[], initialize_logging=True)\n"
+                    "print('init(logging=True) OK')\n"
+                    "rclpy.shutdown()\n"
+                    "print('ALL OK')\n"
                 )
             prefix = 'set "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" && '
             self.run(
