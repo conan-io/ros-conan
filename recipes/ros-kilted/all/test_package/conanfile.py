@@ -51,19 +51,21 @@ class TestPackageConan(ConanFile):
             diag_script = os.path.join(self.build_folder, "diag_rclpy.py")
             with open(diag_script, "w") as _f:
                 _f.write(
-                    "import sys, inspect\n"
-                    "print('exe:', sys.executable)\n"
+                    "import os, sys\n"
+                    "# Set env vars before importing _rclpy_pybind11 (DLL loads at import)\n"
+                    "os.environ['FASTDDS_BUILTIN_TRANSPORTS'] = 'UDPv4'\n"
+                    "print('Set FASTDDS_BUILTIN_TRANSPORTS=UDPv4')\n"
                     "import rclpy\n"
-                    "print('rclpy.init sig:', inspect.signature(rclpy.init))\n"
-                    "print('Testing rclpy.init(args=[])...')\n"
-                    "rclpy.init(args=[])\n"
+                    "print('rclpy imported OK')\n"
+                    "print('Testing rclpy.init()...')\n"
+                    "rclpy.init()\n"
                     "print('init() OK')\n"
                     "rclpy.shutdown()\n"
                     "print('ALL OK')\n"
                 )
-            prefix = 'set "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" && '
+            prefix = 'set "FASTDDS_BUILTIN_TRANSPORTS=UDPv4" && '
             self.run(
-                f'{prefix}"{python_exe}" -Xfaulthandler "{diag_script}" '
+                f'"{python_exe}" -Xfaulthandler "{diag_script}" '
                 '|| echo [diag] script FAILED',
                 env="conanrun")
             self.run(f"{prefix}ros2 node list", env="conanrun")
