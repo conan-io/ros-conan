@@ -1,10 +1,10 @@
 import glob
 import os
 import platform
+import shutil
 
 from conan import ConanFile
 from conan.errors import ConanException
-from conan.tools.build import cmd_args_to_string
 from conan.tools.cmake import CMakeDeps, CMakeToolchain
 from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import (
@@ -23,37 +23,59 @@ from conan.tools.system.package_manager import Apt
 
 
 class PyEnv(_BasePyEnv):
-    """``conan.tools.system.PyEnv`` that creates the Windows venv with ``--copies``.
+    """``conan.tools.system.PyEnv`` that strips the Windows venv launcher.
 
     Plain ``python -m venv`` (what the base class invokes) drops a ~270 KB
     launcher binary as ``<env>/Scripts/python.exe``: a wrapper that
     re-spawns the base interpreter via ``pyvenv.cfg``. The launcher trips
-    CPython issue #85785: when given ``subprocess.Popen(..., creationflags=
-    DETACHED_PROCESS)`` from inside the venv it fails to forward that flag
-    to the re-spawn, so the spawned base interpreter allocates its own
-    console window and does not inherit the parent's stdin pipe. That
-    breaks any consumer using ``DETACHED_PROCESS`` / ``CREATE_NO_WINDOW``
+    CPython issue #85785 — given ``subprocess.Popen(..., creationflags=
+    DETACHED_PROCESS)`` from inside the venv, it fails to forward the
+    flag to the re-spawn, so the spawned base interpreter allocates its
+    own console window and does not inherit the parent's stdin pipe.
+    That breaks any consumer using ``DETACHED_PROCESS`` / ``CREATE_NO_WINDOW``
     from a venv-resident Python — most visibly ros2cli's ``spawn_daemon``,
     which hangs at ``pickle.load(sys.stdin.buffer)`` and flashes a stray
-    cmd window. ``--copies`` makes venv install a real copy of the base
-    interpreter as ``python.exe`` (the layout conda/pixi already use),
-    eliminating the launcher entirely. The venv's ``pyvenv.cfg`` still
-    lives in the parent directory so ``sys.executable``/``sys.prefix``
-    resolve to the venv as usual.
+    cmd window. ``python -m venv --copies`` is supposed to install a real
+    interpreter as ``python.exe`` but in practice (modern Windows
+    installs where the base ``python.exe`` is itself a redirect stub)
+    still produces a launcher — so we replace ``Scripts/python.exe`` with
+    a byte copy of the resolved base interpreter from ``pyvenv.cfg``.
+    Conda/pixi envs avoid this by shipping a real interpreter as
+    ``python.exe`` in the first place; this gives Conan-built envs the
+    same layout. The venv's ``pyvenv.cfg`` still lives in the parent
+    directory, so the copied interpreter still activates the venv
+    (``sys.executable``/``sys.prefix`` point at the venv).
     """
 
     def _create_venv(self):
-        if platform.system() != "Windows":
-            super()._create_venv()
+        super()._create_venv()
+        if platform.system() == "Windows":
+            self._replace_windows_launcher()
+
+    def _replace_windows_launcher(self):
+        venv_python = os.path.join(self._env_dir, "Scripts", "python.exe")
+        pyvenv_cfg = os.path.join(self._env_dir, "pyvenv.cfg")
+        if not (os.path.isfile(venv_python) and os.path.isfile(pyvenv_cfg)):
+            return
+        base_python = None
+        with open(pyvenv_cfg, encoding="utf-8") as fh:
+            for line in fh:
+                key, _, value = line.partition("=")
+                if key.strip().lower() == "home":
+                    candidate = os.path.join(value.strip(), "python.exe")
+                    if os.path.isfile(candidate):
+                        base_python = candidate
+                    break
+        if not base_python:
             return
         try:
-            self._conanfile.run(cmd_args_to_string([
-                self._default_python, "-m", "venv", "--copies", self._env_dir,
-            ]))
-        except ConanException as e:
-            raise ConanException(
-                f"PyEnv could not create a Python virtual environment using "
-                f"'{self._default_python}': {e}")
+            if os.path.samefile(base_python, venv_python):
+                return
+        except OSError:
+            pass
+        if os.path.getsize(base_python) == os.path.getsize(venv_python):
+            return
+        shutil.copy2(base_python, venv_python)
 
 
 PIP_BUILD_TOOLS = (
