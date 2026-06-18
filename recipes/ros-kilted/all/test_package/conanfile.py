@@ -31,8 +31,25 @@ class TestPackageConan(ConanFile):
         self.run(bin_path, env="conanrun")
         self.run("ros2 pkg list", env="conanrun")
         if self.settings.os == "Windows":
-            self.run('python -c "import sys; print(sys.executable)"', env="conanrun")
-            self.run('python -c "import rclpy; print(rclpy.get_rmw_implementation_identifier())"', env="conanrun")
+            # Step 1: which Python and what env vars are active
+            self.run(
+                'python -c "import sys, os; print(\'exe:\', sys.executable); '
+                'print(\'ver:\', sys.version); '
+                'print(\'RMW:\', os.environ.get(\'RMW_IMPLEMENTATION\', \'(not set)\')); '
+                'print(\'AMENT_PREFIX_PATH:\', os.environ.get(\'AMENT_PREFIX_PATH\', \'(not set)\')); '
+                '[print(\'PATH:\', p) for p in os.environ.get(\'PATH\',\'\').split(\';\') '
+                'if any(x in p.lower() for x in [\'ros\', \'conan_py\', \'install\'])]"',
+                env="conanrun")
+            # Step 2: load the rclpy C-extension directly (loads all DDS DLLs)
+            self.run(
+                'python -c "print(\'importing _rclpy_pybind11...\'); '
+                'import rclpy._rclpy_pybind11; print(\'ok\')"',
+                env="conanrun")
+            # Step 3: full rclpy + RMW identifier
+            self.run(
+                'python -c "import rclpy; '
+                'print(\'RMW impl:\', rclpy.get_rmw_implementation_identifier())"',
+                env="conanrun")
         self.run("ros2 node list", env="conanrun")
         self.run("ros2 topic list", env="conanrun")
         self.run("ros2 service list", env="conanrun")
