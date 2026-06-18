@@ -552,7 +552,7 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
-        self.buildenv_info.prepend_path("AMENT_PREFIX_PATH", p)
+        self.buildenv_info.append_path("AMENT_PREFIX_PATH", p)
         self.buildenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
             self.buildenv_info.prepend_path("PYTHONPATH", site)
@@ -563,7 +563,7 @@ class Ros2KiltedConan(ConanFile):
         self.buildenv_info.prepend_path("COLCON_PREFIX_PATH", p)
 
         # Run PATH: rely on cpp_info.bindirs + VirtualRunEnv (see package_type); avoids duplicating PATH here.
-        self.runenv_info.prepend_path("AMENT_PREFIX_PATH", p)
+        self.runenv_info.append_path("AMENT_PREFIX_PATH", p)
         self.runenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
             self.runenv_info.prepend_path("PYTHONPATH", site)
