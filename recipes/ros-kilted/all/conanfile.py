@@ -42,10 +42,15 @@ class PyEnv(_BasePyEnv):
     """
 
     def _create_venv(self):
-        try:
-            target_os = self._conanfile.settings.os
-        except (AttributeError, ConanException):
-            target_os = None
+        # info.settings allowed in finalize(); settings elsewhere; both forbidden in source().
+        target_os = None
+        for probe in (lambda: self._conanfile.info.settings.os,
+                      lambda: self._conanfile.settings.os):
+            try:
+                target_os = probe()
+                break
+            except (AttributeError, ConanException):
+                pass
         if target_os != "Windows":
             super()._create_venv()
             return
