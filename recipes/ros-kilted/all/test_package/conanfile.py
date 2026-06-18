@@ -46,13 +46,28 @@ class TestPackageConan(ConanFile):
             self.run(f'"{python_exe}" -c "import sys; print(sys.executable); print(sys.version)"',
                      env="conanrun")
 
-            # Direct rclpy.init() with faulthandler to see exact crash location.
-            # -Xfaulthandler prints the C/Python stack when an access violation occurs.
+            # Isolate whether the crash is in rcl logging init or in DDS init,
+            # by calling the pybind11 Context.init() directly with logging disabled.
+            diag_script = os.path.join(self.build_folder, "diag_rclpy.py")
+            with open(diag_script, "w") as _f:
+                _f.write(
+                    "import sys, rclpy._rclpy_pybind11 as m\n"
+                    "print('pyd OK')\n"
+                    "print('init doc:', (m.Context.init.__doc__ or '')[:300])\n"
+                    "ctx = m.Context()\n"
+                    "print('Context() OK')\n"
+                    "ctx.init([], False, None)\n"
+                    "print('init(logging=False) OK')\n"
+                    "ctx.shutdown()\n"
+                    "ctx2 = m.Context()\n"
+                    "ctx2.init([], True, None)\n"
+                    "print('init(logging=True) OK')\n"
+                    "ctx2.shutdown()\n"
+                )
             prefix = 'set "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" && '
             self.run(
-                f'{prefix}"{python_exe}" -Xfaulthandler -c '
-                '"import rclpy; rclpy.init(); print(chr(79)*3); rclpy.shutdown()" '
-                '|| echo [diag] rclpy.init FAILED',
+                f'{prefix}"{python_exe}" -Xfaulthandler "{diag_script}" '
+                '|| echo [diag] script FAILED',
                 env="conanrun")
             self.run(f"{prefix}ros2 node list", env="conanrun")
             self.run(f"{prefix}ros2 topic list", env="conanrun")
