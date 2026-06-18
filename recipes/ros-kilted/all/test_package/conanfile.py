@@ -1,4 +1,5 @@
 import os
+import sys
 
 from conan import ConanFile
 from conan.tools.build import can_run, cross_building
@@ -31,24 +32,24 @@ class TestPackageConan(ConanFile):
         self.run(bin_path, env="conanrun")
         self.run("ros2 pkg list", env="conanrun")
         if self.settings.os == "Windows":
-            # Use %COLCON_PYTHON_EXECUTABLE% — the finalize-venv Python (set in runenv_info),
-            # not the system `python` which lacks the ROS2 pip dependencies.
-            # Step 1: which Python is the finalize venv using + key env vars
+            dep = self.dependencies[self.tested_reference_str]
+            py_ver = f"{sys.version_info.major}_{sys.version_info.minor}"
+            conan_py = os.path.join(dep.package_folder, f"conan_pyenv_{py_ver}", "Scripts", "python.exe")
+            # Step 1: confirm we're using the finalize-venv Python + key env vars
             self.run(
-                '%COLCON_PYTHON_EXECUTABLE% -c "import sys, os; print(\'exe:\', sys.executable); '
-                'print(\'ver:\', sys.version); '
+                f'"{conan_py}" -c "import sys, os; print(\'exe:\', sys.executable); '
                 'print(\'RMW:\', os.environ.get(\'RMW_IMPLEMENTATION\', \'(not set)\')); '
                 '[print(\'PATH:\', p) for p in os.environ.get(\'PATH\',\'\').split(\';\') '
                 'if any(x in p.lower() for x in [\'ros\', \'conan_py\', \'install\'])]"',
                 env="conanrun")
-            # Step 2: load the rclpy C-extension (loads all DDS DLLs) — crash likely here
+            # Step 2: load the rclpy C-extension (loads DDS DLLs) — crash likely here
             self.run(
-                '%COLCON_PYTHON_EXECUTABLE% -c "print(\'importing _rclpy_pybind11...\'); '
+                f'"{conan_py}" -c "print(\'importing _rclpy_pybind11...\'); '
                 'import rclpy._rclpy_pybind11; print(\'ok\')"',
                 env="conanrun")
             # Step 3: full rclpy + RMW identifier
             self.run(
-                '%COLCON_PYTHON_EXECUTABLE% -c "import rclpy; '
+                f'"{conan_py}" -c "import rclpy; '
                 'print(\'RMW impl:\', rclpy.get_rmw_implementation_identifier())"',
                 env="conanrun")
         self.run("ros2 node list", env="conanrun")
