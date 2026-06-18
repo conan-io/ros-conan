@@ -50,7 +50,7 @@ class TestPackageConan(ConanFile):
             with open(diag_script, "w") as _f:
                 _f.write(
                     "import ctypes, sys\n"
-                    "# Verify which msvcp140.dll is loaded — must be System32, not Service Fabric\n"
+                    "# Verify msvcp140.dll comes from System32, not Service Fabric\n"
                     "hmod = ctypes.windll.kernel32.GetModuleHandleA(b'msvcp140.dll')\n"
                     "if hmod:\n"
                     "    buf = ctypes.create_string_buffer(512)\n"
