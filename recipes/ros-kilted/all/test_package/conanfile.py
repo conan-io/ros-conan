@@ -1,4 +1,5 @@
 import os
+import sys
 
 from conan import ConanFile
 from conan.tools.build import can_run, cross_building
@@ -58,9 +59,20 @@ class TestPackageConan(ConanFile):
         self.run(bin_path, env="conanrun")
         self.run("ros2 pkg list", env="conanrun")
         if self.settings.os == "Windows":
-            # os.environ doesn't propagate into Conan's subprocess env on Windows.
-            # Inject FASTDDS_DEFAULT_PROFILES_FILE via `set ... &&` in the cmd string
-            # so it's active in the same cmd session as ros2 (and inherited by the daemon).
+            # Diagnose which Python backs the finalize() venv. The `home` field in
+            # pyvenv.cfg points to the base interpreter: uv-managed = python-build-standalone
+            # (incompatible VCRUNTIME with rclpy extensions); system = correct CPython.
+            dep = self.dependencies["ros-kilted"]
+            py_ver = f"{sys.version_info.major}_{sys.version_info.minor}"
+            pyenv_dir = os.path.join(dep.package_folder, f"conan_pyenv_{py_ver}")
+            pyvenv_cfg = os.path.join(pyenv_dir, "pyvenv.cfg")
+            if os.path.exists(pyvenv_cfg):
+                with open(pyvenv_cfg) as _f:
+                    self.output.info(f"[diag] pyvenv.cfg:\n{_f.read()}")
+            python_exe = os.path.join(pyenv_dir, "Scripts", "python.exe")
+            self.run(f'"{python_exe}" -c "import sys; print(sys.executable); print(sys.version)"',
+                     env="conanrun")
+
             profile_path = os.path.join(self.build_folder, "fastdds_no_shm.xml")
             with open(profile_path, "w") as f:
                 f.write(_FASTDDS_NO_SHM_PROFILE)
