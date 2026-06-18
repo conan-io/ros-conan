@@ -46,80 +46,31 @@ class TestPackageConan(ConanFile):
             self.run(f'"{python_exe}" -c "import sys; print(sys.executable); print(sys.version)"',
                      env="conanrun")
 
-            # Isolate whether the crash is in rcl logging init or in DDS init,
-            # by calling the pybind11 Context.init() directly with logging disabled.
             diag_script = os.path.join(self.build_folder, "diag_rclpy.py")
             with open(diag_script, "w") as _f:
                 _f.write(
-                    "import ctypes, sys, os\n"
-                    "\n"
-                    "class _EXCEPTION_RECORD(ctypes.Structure): pass\n"
-                    "_EXCEPTION_RECORD._fields_ = [\n"
-                    "    ('ExceptionCode', ctypes.c_uint32),\n"
-                    "    ('ExceptionFlags', ctypes.c_uint32),\n"
-                    "    ('ExceptionRecord', ctypes.POINTER(_EXCEPTION_RECORD)),\n"
-                    "    ('ExceptionAddress', ctypes.c_void_p),\n"
-                    "    ('NumberParameters', ctypes.c_uint32),\n"
-                    "    ('ExceptionInformation', ctypes.c_void_p * 15),\n"
-                    "]\n"
-                    "class _EXCEPTION_POINTERS(ctypes.Structure):\n"
-                    "    _fields_ = [('ExceptionRecord', ctypes.POINTER(_EXCEPTION_RECORD)),\n"
-                    "                ('ContextRecord', ctypes.c_void_p)]\n"
-                    "def _crash_filter(exc_ptr):\n"
-                    "    try:\n"
-                    "        rec = exc_ptr.contents.ExceptionRecord.contents\n"
-                    "        addr = rec.ExceptionAddress or 0\n"
-                    "        sys.stderr.write(f'[native-crash] code=0x{rec.ExceptionCode:08X} addr=0x{addr:016X}\\n')\n"
-                    "        psapi = ctypes.WinDLL('psapi')\n"
-                    "        k32 = ctypes.windll.kernel32\n"
-                    "        k32.GetCurrentProcess.restype = ctypes.c_void_p\n"
-                    "        hProc = k32.GetCurrentProcess()\n"
-                    "        buf = ctypes.create_string_buffer(1024)\n"
-                    "        psapi.GetMappedFileNameA.restype = ctypes.c_uint32\n"
-                    "        n = psapi.GetMappedFileNameA(ctypes.c_void_p(hProc), ctypes.c_void_p(addr), buf, 1024)\n"
-                    "        if n:\n"
-                    "            sys.stderr.write(f'[native-crash] module: {buf.value.decode(errors=\"replace\")}\\n')\n"
-                    "        else:\n"
-                    "            err = k32.GetLastError()\n"
-                    "            sys.stderr.write(f'[native-crash] GetMappedFileName err={err} (0x{err:08X})\\n')\n"
-                    "            # Fallback: VirtualQuery to get allocation base\n"
-                    "            class MBI(ctypes.Structure):\n"
-                    "                _fields_ = [('BaseAddress', ctypes.c_void_p), ('AllocationBase', ctypes.c_void_p),\n"
-                    "                            ('AllocationProtect', ctypes.c_uint32), ('_pad', ctypes.c_uint32),\n"
-                    "                            ('RegionSize', ctypes.c_size_t), ('State', ctypes.c_uint32),\n"
-                    "                            ('Protect', ctypes.c_uint32), ('Type', ctypes.c_uint32)]\n"
-                    "            mbi = MBI()\n"
-                    "            k32.VirtualQuery(ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi))\n"
-                    "            base = mbi.AllocationBase or 0\n"
-                    "            sys.stderr.write(f'[native-crash] alloc_base=0x{base:016X} type=0x{mbi.Type:08X}\\n')\n"
-                    "            n2 = psapi.GetMappedFileNameA(ctypes.c_void_p(hProc), ctypes.c_void_p(base), buf, 1024)\n"
-                    "            if n2:\n"
-                    "                sys.stderr.write(f'[native-crash] module: {buf.value.decode(errors=\"replace\")}\\n')\n"
-                    "    except Exception as e:\n"
-                    "        sys.stderr.write(f'[filter-error] {e}\\n')\n"
-                    "    sys.stderr.flush()\n"
-                    "    return 0\n"
-                    "\n"
-                    "_FilterType = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.POINTER(_EXCEPTION_POINTERS))\n"
-                    "_filter_ref = _FilterType(_crash_filter)\n"
-                    "ctypes.windll.kernel32.SetUnhandledExceptionFilter(_filter_ref)\n"
-                    "\n"
+                    "import ctypes, sys\n"
+                    "# Verify which msvcp140.dll is loaded — must be System32, not Service Fabric\n"
+                    "hmod = ctypes.windll.kernel32.GetModuleHandleA(b'msvcp140.dll')\n"
+                    "if hmod:\n"
+                    "    buf = ctypes.create_string_buffer(512)\n"
+                    "    ctypes.windll.psapi.GetModuleFileNameExA(\n"
+                    "        ctypes.windll.kernel32.GetCurrentProcess(), hmod, buf, 512)\n"
+                    "    print(f'[diag] msvcp140.dll: {buf.value.decode()}', flush=True)\n"
                     "import rclpy\n"
-                    "sys.stderr.write('[diag] rclpy imported OK\\n'); sys.stderr.flush()\n"
                     "rclpy.init()\n"
-                    "sys.stderr.write('[diag] init() OK\\n'); sys.stderr.flush()\n"
+                    "print('[diag] rclpy.init() OK', flush=True)\n"
                     "rclpy.shutdown()\n"
-                    "sys.stderr.write('[diag] ALL OK\\n'); sys.stderr.flush()\n"
+                    "print('[diag] ALL OK', flush=True)\n"
                 )
-            prefix = ''
             self.run(
                 f'"{python_exe}" -Xfaulthandler "{diag_script}" '
                 '|| echo [diag] script FAILED',
                 env="conanrun")
-            self.run(f"{prefix}ros2 node list", env="conanrun")
-            self.run(f"{prefix}ros2 topic list", env="conanrun")
-            self.run(f"{prefix}ros2 service list", env="conanrun")
-            self.run(f"{prefix}ros2 action list", env="conanrun")
+            self.run("ros2 node list", env="conanrun")
+            self.run("ros2 topic list", env="conanrun")
+            self.run("ros2 service list", env="conanrun")
+            self.run("ros2 action list", env="conanrun")
         else:
             self.run("ros2 node list", env="conanrun")
             self.run("ros2 topic list", env="conanrun")
