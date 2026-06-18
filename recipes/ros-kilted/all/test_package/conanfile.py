@@ -80,6 +80,13 @@ class TestPackageConan(ConanFile):
                 f'set "FASTDDS_DEFAULT_PROFILES_FILE={profile_path}" && '
                 'set "ROS_LOCALHOST_ONLY=1" && '
             )
+            # Direct rclpy.init() test (non-fatal): tells us whether the Fast-DDS
+            # profile actually prevents the crash, independent of the daemon path.
+            self.run(
+                f'{prefix}"{python_exe}" -c '
+                '"import rclpy; rclpy.init(); print(chr(79)*3); rclpy.shutdown()" '
+                '|| echo [diag] rclpy.init FAILED with profile',
+                env="conanrun")
             self.run(f"{prefix}ros2 node list", env="conanrun")
             self.run(f"{prefix}ros2 topic list", env="conanrun")
             self.run(f"{prefix}ros2 service list", env="conanrun")
