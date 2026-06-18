@@ -7,7 +7,7 @@ from conan.tools.cmake import CMake, cmake_layout
 # Fast-DDS uses shared memory (builtin transport) by default on Windows, which
 # crashes with STATUS_ACCESS_VIOLATION (0xC0000005) during rclpy.init() on
 # headless/CI environments. This profile disables builtin transports and uses
-# plain UDPv4 only. Written to disk and pointed at via FASTRTPS_DEFAULT_PROFILES_FILE.
+# plain UDPv4 only. Written to disk and pointed at via FASTDDS_DEFAULT_PROFILES_FILE.
 _FASTDDS_NO_SHM_PROFILE = """\
 <?xml version="1.0" encoding="UTF-8" ?>
 <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
@@ -56,13 +56,13 @@ class TestPackageConan(ConanFile):
         self.run("ros2 pkg list", env="conanrun")
         if self.settings.os == "Windows":
             # os.environ doesn't propagate into Conan's subprocess env on Windows.
-            # Inject FASTRTPS_DEFAULT_PROFILES_FILE via `set ... &&` in the cmd string
+            # Inject FASTDDS_DEFAULT_PROFILES_FILE via `set ... &&` in the cmd string
             # so it's active in the same cmd session as ros2 (and inherited by the daemon).
             profile_path = os.path.join(self.build_folder, "fastdds_no_shm.xml")
             with open(profile_path, "w") as f:
                 f.write(_FASTDDS_NO_SHM_PROFILE)
             p = profile_path.replace("\\", "\\\\")
-            prefix = f"set FASTRTPS_DEFAULT_PROFILES_FILE={p} && "
+            prefix = f"set FASTDDS_DEFAULT_PROFILES_FILE={p} && "
             self.run(f"{prefix}ros2 node list", env="conanrun")
             self.run(f"{prefix}ros2 topic list", env="conanrun")
             self.run(f"{prefix}ros2 service list", env="conanrun")
