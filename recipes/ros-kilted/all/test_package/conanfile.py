@@ -51,15 +51,24 @@ class TestPackageConan(ConanFile):
     def test(self):
         if not can_run(self) or cross_building(self):
             return
-        if self.settings.os == "Windows":
-            profile_path = os.path.join(self.build_folder, "fastdds_no_shm.xml")
-            with open(profile_path, "w") as f:
-                f.write(_FASTDDS_NO_SHM_PROFILE)
-            os.environ["FASTRTPS_DEFAULT_PROFILES_FILE"] = profile_path
         bin_path = os.path.join(self.cpp.build.bindirs[0], "test_package_node")
         self.run(bin_path, env="conanrun")
         self.run("ros2 pkg list", env="conanrun")
-        self.run("ros2 node list", env="conanrun")
-        self.run("ros2 topic list", env="conanrun")
-        self.run("ros2 service list", env="conanrun")
-        self.run("ros2 action list", env="conanrun")
+        if self.settings.os == "Windows":
+            # os.environ doesn't propagate into Conan's subprocess env on Windows.
+            # Inject FASTRTPS_DEFAULT_PROFILES_FILE via `set ... &&` in the cmd string
+            # so it's active in the same cmd session as ros2 (and inherited by the daemon).
+            profile_path = os.path.join(self.build_folder, "fastdds_no_shm.xml")
+            with open(profile_path, "w") as f:
+                f.write(_FASTDDS_NO_SHM_PROFILE)
+            p = profile_path.replace("\\", "\\\\")
+            prefix = f"set FASTRTPS_DEFAULT_PROFILES_FILE={p} && "
+            self.run(f"{prefix}ros2 node list", env="conanrun")
+            self.run(f"{prefix}ros2 topic list", env="conanrun")
+            self.run(f"{prefix}ros2 service list", env="conanrun")
+            self.run(f"{prefix}ros2 action list", env="conanrun")
+        else:
+            self.run("ros2 node list", env="conanrun")
+            self.run("ros2 topic list", env="conanrun")
+            self.run("ros2 service list", env="conanrun")
+            self.run("ros2 action list", env="conanrun")
