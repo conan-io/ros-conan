@@ -51,18 +51,13 @@ class TestPackageConan(ConanFile):
             diag_script = os.path.join(self.build_folder, "diag_rclpy.py")
             with open(diag_script, "w") as _f:
                 _f.write(
-                    "import sys\n"
+                    "import sys, inspect\n"
                     "print('exe:', sys.executable)\n"
                     "import rclpy\n"
-                    "print('rclpy imported OK')\n"
-                    "print('Testing init(initialize_logging=False)...')\n"
-                    "rclpy.init(args=[], initialize_logging=False)\n"
-                    "print('init(logging=False) OK')\n"
-                    "rclpy.shutdown()\n"
-                    "print('shutdown OK')\n"
-                    "print('Testing init(initialize_logging=True)...')\n"
-                    "rclpy.init(args=[], initialize_logging=True)\n"
-                    "print('init(logging=True) OK')\n"
+                    "print('rclpy.init sig:', inspect.signature(rclpy.init))\n"
+                    "print('Testing rclpy.init(args=[])...')\n"
+                    "rclpy.init(args=[])\n"
+                    "print('init() OK')\n"
                     "rclpy.shutdown()\n"
                     "print('ALL OK')\n"
                 )
