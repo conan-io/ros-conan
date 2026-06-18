@@ -1,9 +1,9 @@
 import glob
 import os
-import sys
 
 from conan import ConanFile
 from conan.errors import ConanException
+from conan.tools.build import cmd_args_to_string
 from conan.tools.cmake import CMakeDeps, CMakeToolchain
 from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import (
@@ -17,8 +17,43 @@ from conan.tools.files import (
     save,
 )
 from conan.tools.microsoft import VCVars
-from conan.tools.system import PyEnv
+from conan.tools.system import PyEnv as _BasePyEnv
 from conan.tools.system.package_manager import Apt
+
+
+class PyEnv(_BasePyEnv):
+    """``conan.tools.system.PyEnv`` that creates the Windows venv with ``--copies``.
+
+    Plain ``python -m venv`` (what the base class invokes) drops a ~270 KB
+    launcher binary as ``<env>/Scripts/python.exe``: a wrapper that
+    re-spawns the base interpreter via ``pyvenv.cfg``. The launcher trips
+    CPython issue #85785: when given ``subprocess.Popen(..., creationflags=
+    DETACHED_PROCESS)`` from inside the venv it fails to forward that flag
+    to the re-spawn, so the spawned base interpreter allocates its own
+    console window and does not inherit the parent's stdin pipe. That
+    breaks any consumer using ``DETACHED_PROCESS`` / ``CREATE_NO_WINDOW``
+    from a venv-resident Python — most visibly ros2cli's ``spawn_daemon``,
+    which hangs at ``pickle.load(sys.stdin.buffer)`` and flashes a stray
+    cmd window. ``--copies`` makes venv install a real copy of the base
+    interpreter as ``python.exe`` (the layout conda/pixi already use),
+    eliminating the launcher entirely. The venv's ``pyvenv.cfg`` still
+    lives in the parent directory so ``sys.executable``/``sys.prefix``
+    resolve to the venv as usual.
+    """
+
+    def _create_venv(self):
+        if self.settings.os != "Windows":
+            super()._create_venv()
+            return
+        try:
+            self._conanfile.run(cmd_args_to_string([
+                self._default_python, "-m", "venv", "--copies", self._env_dir,
+            ]))
+        except ConanException as e:
+            raise ConanException(
+                f"PyEnv could not create a Python virtual environment using "
+                f"'{self._default_python}': {e}")
+
 
 PIP_BUILD_TOOLS = (
     # --- colcon ---
