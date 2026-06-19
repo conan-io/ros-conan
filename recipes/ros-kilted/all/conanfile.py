@@ -1,6 +1,5 @@
 import glob
 import os
-import sys
 
 from conan import ConanFile
 from conan.errors import ConanException
@@ -115,9 +114,13 @@ class Ros2KiltedConan(ConanFile):
     url = "https://docs.ros.org/en/kilted/"
     description = "ROS 2 Kilted merged install from source, dependencies via Conan + PyEnv."
     settings = "os", "compiler", "build_type", "arch"
-    options = {"variant": ["core", "base", "desktop", "desktop_full"]}
+    options = {
+        "variant": ["core", "base", "desktop", "desktop_full"],
+        "python_version": ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"],
+    }
     default_options = {
         "variant": "core",
+        "python_version": "3.12",
         # CCI ffmpeg recipe declares `avcodec.requires.append("libwebp::libwebp")` but the
         # libwebp recipe exposes components `webp`/`webpdecoder`/...; the missing target name
         # breaks OpenCV's CMakeDeps consumption. OpenCV links libwebp directly for image I/O
@@ -257,7 +260,7 @@ class Ros2KiltedConan(ConanFile):
         Apt(self).install(["libacl1-dev"], update=True, check=True)
 
     def generate(self):
-        pyenv = PyEnv(self)
+        pyenv = PyEnv(self, py_version=str(self.options.python_version))
         pyenv.install(list(PIP_BUILD_TOOLS))
         # ament_cmake_core's templates_2_cmake.py imports `ament_package` at CMake
         # configure time, but ament_cmake_core's package.xml only declares
@@ -499,12 +502,13 @@ class Ros2KiltedConan(ConanFile):
         at ``<pkg>/conan_pyenv`` with the build-time pip set, then retargets entry points (POSIX
         rewrites shebangs in ``bin/``; Windows writes ``Scripts/<name>.cmd`` shims and removes
         cli-64.exe stubs that PATHEXT would otherwise rank above ``.CMD``). Runs in finalize() so each
-        (package_id, host) gets a writable per-machine folder. Caveat: venv python's minor version must
-        match the build-time interpreter or C-extensions fail; pin via ``tools.system.pyenv:python_interpreter``.
+        (package_id, host) gets a writable per-machine folder. The ``package_id()`` override injects
+        the build-time Python minor version into the fingerprint, so C-extensions are never loaded
+        under an incompatible interpreter.
 """
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
-        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+        py_ver = str(self.options.python_version)
         pyenv = PyEnv(self, folder=self.package_folder, py_version=py_ver)
         pyenv.install(list(PIP_BUILD_TOOLS))
 
@@ -619,10 +623,8 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
 
-        venv_bin = "Scripts" if str(self.settings.os) == "Windows" else "bin"
-        venv_py = "python.exe" if str(self.settings.os) == "Windows" else "python"
-        py_ver = f"{sys.version_info.major}_{sys.version_info.minor}"
-        py_exe = os.path.join(p, f"conan_pyenv_{py_ver}", venv_bin, venv_py)
+        pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
+        py_exe = pyenv.env_exe
         self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
         self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
         self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)

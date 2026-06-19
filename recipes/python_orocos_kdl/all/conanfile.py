@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import os
-
 from conan import ConanFile
 from conan.tools.system import PyEnv
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
@@ -21,6 +20,8 @@ class PythonOrocosKdlConan(ConanFile):
     topics = ("robotics", "kinematics", "kdl", "pykdl", "ros2")
 
     settings = "os", "compiler", "build_type", "arch"
+    options = {"python_version": ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]}
+    default_options = {"python_version": "3.12"}
     exports_sources = "conandata.yml", "patches/*"
 
     def layout(self):

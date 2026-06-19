@@ -3,8 +3,10 @@ include(default)
 [settings]
 compiler.cppstd=17
 
-{% if platform.system() == "Windows" %}
 [options]
+ros-kilted/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
+python_orocos_kdl/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
+{% if platform.system() == "Windows" %}
 opencv/*:with_ffmpeg=False
 {% endif %}
 
