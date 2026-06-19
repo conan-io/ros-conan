@@ -1,6 +1,5 @@
 import glob
 import os
-import sys
 
 from conan import ConanFile
 from conan.errors import ConanException
@@ -115,9 +114,13 @@ class Ros2KiltedConan(ConanFile):
     url = "https://docs.ros.org/en/kilted/"
     description = "ROS 2 Kilted merged install from source, dependencies via Conan + PyEnv."
     settings = "os", "compiler", "build_type", "arch"
-    options = {"variant": ["core", "base", "desktop", "desktop_full"]}
+    options = {
+        "variant": ["core", "base", "desktop", "desktop_full"],
+        "python_version": ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"],
+    }
     default_options = {
         "variant": "core",
+        "python_version": "3.12",
         # CCI ffmpeg recipe declares `avcodec.requires.append("libwebp::libwebp")` but the
         # libwebp recipe exposes components `webp`/`webpdecoder`/...; the missing target name
         # breaks OpenCV's CMakeDeps consumption. OpenCV links libwebp directly for image I/O
@@ -257,7 +260,7 @@ class Ros2KiltedConan(ConanFile):
         Apt(self).install(["libacl1-dev"], update=True, check=True)
 
     def generate(self):
-        pyenv = PyEnv(self)
+        pyenv = PyEnv(self, py_version=str(self.options.python_version))
         pyenv.install(list(PIP_BUILD_TOOLS))
         # ament_cmake_core's templates_2_cmake.py imports `ament_package` at CMake
         # configure time, but ament_cmake_core's package.xml only declares
@@ -429,8 +432,6 @@ class Ros2KiltedConan(ConanFile):
         replace_in_file(self, path, block, injection, strict=True)
 
     def source(self):
-        pyenv = PyEnv(self, folder=self.source_folder)
-        pyenv.install(["setuptools==68.1.2", "vcstool==0.3.0"])
         sources_data = self.conan_data["sources"][str(self.version)]
         repos = os.path.join(self.source_folder, "ros2.repos")
         download(self, url=sources_data["url"], sha256=sources_data["sha256"], filename=repos)
@@ -501,12 +502,14 @@ class Ros2KiltedConan(ConanFile):
         at ``<pkg>/conan_pyenv`` with the build-time pip set, then retargets entry points (POSIX
         rewrites shebangs in ``bin/``; Windows writes ``Scripts/<name>.cmd`` shims and removes
         cli-64.exe stubs that PATHEXT would otherwise rank above ``.CMD``). Runs in finalize() so each
-        (package_id, host) gets a writable per-machine folder. Caveat: venv python's minor version must
-        match the build-time interpreter or C-extensions fail; pin via ``tools.system.pyenv:python_interpreter``.
+        (package_id, host) gets a writable per-machine folder. The ``package_id()`` override injects
+        the build-time Python minor version into the fingerprint, so C-extensions are never loaded
+        under an incompatible interpreter.
 """
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
-        pyenv = PyEnv(self, folder=self.package_folder)
+        py_ver = str(self.info.options.python_version)
+        pyenv = PyEnv(self, folder=self.package_folder, py_version=py_ver)
         pyenv.install(list(PIP_BUILD_TOOLS))
 
         if str(self.info.settings.os) == "Windows":
@@ -553,11 +556,10 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
-        self.buildenv_info.append_path("AMENT_PREFIX_PATH", p)
+        self.buildenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.buildenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
             self.buildenv_info.prepend_path("PYTHONPATH", site)
-        self.buildenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.buildenv_info.prepend_path("CMAKE_PREFIX_PATH", p)
         self.buildenv_info.define("ROS_DISTRO", "kilted")
         self.buildenv_info.define("ROS_VERSION", "2")
@@ -565,11 +567,10 @@ class Ros2KiltedConan(ConanFile):
         self.buildenv_info.prepend_path("COLCON_PREFIX_PATH", p)
 
         # Run PATH: rely on cpp_info.bindirs + VirtualRunEnv (see package_type); avoids duplicating PATH here.
-        self.runenv_info.append_path("AMENT_PREFIX_PATH", p)
+        self.runenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.runenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
             self.runenv_info.prepend_path("PYTHONPATH", site)
-        self.runenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.runenv_info.prepend_path("CMAKE_PREFIX_PATH", p)
         self.runenv_info.define("ROS_DISTRO", "kilted")
         self.runenv_info.define("ROS_VERSION", "2")
@@ -622,9 +623,8 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
 
-        venv_bin = "Scripts" if str(self.settings.os) == "Windows" else "bin"
-        venv_py = "python.exe" if str(self.settings.os) == "Windows" else "python"
-        py_exe = os.path.join(p, "conan_pyenv", venv_bin, venv_py)
+        pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
+        py_exe = pyenv.env_exe
         self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
         self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
         self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
