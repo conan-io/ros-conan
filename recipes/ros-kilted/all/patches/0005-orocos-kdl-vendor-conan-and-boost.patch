@@ -1,5 +1,5 @@
---- src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/CMakeLists.txt
-+++ src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/CMakeLists.txt
+--- src/orocos_kdl_vendor/orocos_kdl_vendor/CMakeLists.txt
++++ src/orocos_kdl_vendor/orocos_kdl_vendor/CMakeLists.txt
 @@ -5,7 +5,21 @@ find_package(ament_cmake REQUIRED)
  find_package(ament_cmake_vendor_package REQUIRED)
  
@@ -23,8 +23,8 @@
  
  if(NOT CMAKE_CXX_STANDARD)
    # orocos_kdl uses some deprecated APIs in C++17, so we set this to C++11
---- src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
-+++ src/ros2/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
+--- src/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
++++ src/orocos_kdl_vendor/orocos_kdl_vendor/orocos_kdl_vendor-extras.cmake
 @@ -12,7 +12,23 @@
  # See the License for the specific language governing permissions and
  # limitations under the License.

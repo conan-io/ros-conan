@@ -1,5 +1,5 @@
---- src/ros2/rosidl_python/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake
-+++ src/ros2/rosidl_python/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake
+--- src/rosidl_python/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake
++++ src/rosidl_python/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake
 @@ -232,7 +232,24 @@ foreach(_typesupport_impl ${_typesupport_impls})
    add_dependencies(${_target_name}
      ${rosidl_generate_interfaces_TARGET}__${_typesupport_impl}

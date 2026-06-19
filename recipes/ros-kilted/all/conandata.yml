@@ -1,14 +1,17 @@
+# sources: pinned ros/rosdistro snapshot tarball. The recipe's source() runs
+# rosinstall_generator against the extracted index to expand the desktop_full
+# transitive closure into a .repos and feeds it to vcs import. One source tree
+# serves all four variants; colcon's --packages-up-to filters at build time.
+#
+# To bump the snapshot, pick a newer dated tag from
+# https://github.com/ros/rosdistro/tags (named ``<distro>/<YYYY-MM-DD>``) and
+# update both the URL and the sha256 below. After the bump, re-test that
+# patches/*.patch still apply -- package versions shift between snapshots.
 sources:
-  # Consider matching the recipe version to the snapshot date (e.g. 20250728)
   "0.1.0":
-    url: "https://raw.githubusercontent.com/ros2/ros2/release-kilted-20250728/ros2.repos"
-    sha256: "2ee28764efa0b6dd1dbe90607986387c9d668b186bfac0edbabdd9c5ee834d1b"
-    # To find the ros2/variants metapackages tag (not in ros2.repos) that matches the snapshot above:
-    #   https://raw.githubusercontent.com/ros/rosdistro/master/kilted/distribution.yaml
-    #   -> variants.release.version (e.g. "0.12.0-2"; strip the "-N" bloom suffix).
-    variants:
-      url: "https://github.com/ros2/variants/archive/refs/tags/0.12.0.tar.gz"
-      sha256: "5089bf2dea8368020243d40a2b513405cd060aacc42de6fae2289c1a87f74f99"
+    rosdistro:
+      url: https://github.com/ros/rosdistro/archive/refs/tags/kilted/2026-06-17.tar.gz
+      sha256: fe78f42183d7e716e2a16bc292e9e2f10ca53bd0e3557d76946cc6096eab0a5d
 
 patches:
   "0.1.0":

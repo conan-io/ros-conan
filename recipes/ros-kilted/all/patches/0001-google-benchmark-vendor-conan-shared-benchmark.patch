@@ -1,5 +1,5 @@
---- src/ament/google_benchmark_vendor/CMakeLists.txt
-+++ src/ament/google_benchmark_vendor/CMakeLists.txt
+--- src/google_benchmark_vendor/CMakeLists.txt
++++ src/google_benchmark_vendor/CMakeLists.txt
 @@ -86,8 +86,8 @@ elseif(benchmark_FOUND)
    # Ubuntu Focal and Jammy have a packaging bug where libbenchmark_main has no symbols,
    # causing linker failures. I'm pretty sure it shouldn't be a static library.
