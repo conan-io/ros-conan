@@ -17,6 +17,11 @@ repositories:
     url: https://github.com/ros-drivers/joystick_drivers.git
     version: 3.3.0
 
+  ros-perception/pcl_msgs:
+    type: git
+    url: https://github.com/ros-perception/pcl_msgs.git
+    version: ros2
+
   ros-perception/perception_pcl:
     type: git
     url: https://github.com/ros-perception/perception_pcl.git
