@@ -1,0 +1,76 @@
+# Packages required by ros2/variants `desktop_full` (0.12.0) that are absent
+# from the official ros2.repos snapshot (beyond those in desktop_overlay.repos).
+# Versions are taken from the official Kilted rosdistro
+# (ros/rosdistro kilted/distribution.yaml).
+#
+# NOTE: the gz_*_vendor packages build Gazebo from source as ExternalProjects
+# (same pattern as gz_cmake_vendor / gz_math_vendor / gz_utils_vendor in
+# ros2.repos). They are self-contained and require no extra Conan deps.
+repositories:
+  # --- perception variant ---
+  ros-perception/image_pipeline:
+    type: git
+    url: https://github.com/ros-perception/image_pipeline.git
+    version: kilted
+
+  ros-perception/image_transport_plugins:
+    type: git
+    url: https://github.com/ros-perception/image_transport_plugins.git
+    version: kilted
+
+  ros-perception/laser_filters:
+    type: git
+    url: https://github.com/ros-perception/laser_filters.git
+    version: ros2
+
+  ros-perception/vision_opencv:
+    type: git
+    url: https://github.com/ros-perception/vision_opencv.git
+    version: rolling
+
+  # --- simulation variant (Gazebo vendors) ---
+  gazebo-release/gz_msgs_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_msgs_vendor.git
+    version: kilted
+
+  gazebo-release/gz_transport_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_transport_vendor.git
+    version: kilted
+
+  gazebo-release/gz_plugin_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_plugin_vendor.git
+    version: kilted
+
+  gazebo-release/gz_tools_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_tools_vendor.git
+    version: kilted
+
+  gazebo-release/gz_rendering_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_rendering_vendor.git
+    version: kilted
+
+  gazebo-release/gz_sensors_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_sensors_vendor.git
+    version: kilted
+
+  gazebo-release/gz_gui_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_gui_vendor.git
+    version: kilted
+
+  gazebo-release/gz_sim_vendor:
+    type: git
+    url: https://github.com/gazebo-release/gz_sim_vendor.git
+    version: kilted
+
+  # --- ros_gz ROS-Gazebo bridge ---
+  gazebosim/ros_gz:
+    type: git
+    url: https://github.com/gazebosim/ros_gz.git
+    version: kilted

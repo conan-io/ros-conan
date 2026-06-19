@@ -107,7 +107,7 @@ class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
     version = "0.1.0"
     provides = "ros"  # To avoid name conflicts with other ros packages: ros-rolling, ros-humble, etc.
-    exports_sources = "conandata.yml", "patches/*", "desktop_overlay.repos"
+    exports_sources = "conandata.yml", "patches/*", "desktop_overlay.repos", "desktop_full_overlay.repos"
     # Shared stack + executables: keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH.
     package_type = "shared-library"
     license = "Apache-2.0"
@@ -452,14 +452,14 @@ class Ros2KiltedConan(ConanFile):
         self.run(f'"{vcs_exe}" import --input "{repos}" src',
                  cwd=self.source_folder)
 
-        # Packages required by ros2/variants `desktop` that are absent from the
-        # official ros2.repos (angles, depthimage_to_laserscan, joystick_drivers,
-        # perception_pcl, teleop_twist_joy, teleop_twist_keyboard,
-        # rqt_common_plugins). Cloned unconditionally so the source tree is
-        # variant-agnostic; --packages-up-to in build() limits what gets built.
-        overlay = os.path.join(self.export_sources_folder, "desktop_overlay.repos")
-        self.run(f'"{vcs_exe}" import --input "{overlay}" src',
-                 cwd=self.source_folder)
+        # Packages required by ros2/variants `desktop` / `desktop_full` that are
+        # absent from the official ros2.repos. Cloned unconditionally so the
+        # source tree is variant-agnostic; --packages-up-to in build() limits
+        # what gets built.
+        for overlay_file in ("desktop_overlay.repos", "desktop_full_overlay.repos"):
+            overlay = os.path.join(self.export_sources_folder, overlay_file)
+            self.run(f'"{vcs_exe}" import --input "{overlay}" src',
+                     cwd=self.source_folder)
 
         # ros2/variants tarball into src/ros2/variants/ so colcon resolves
         # --packages-up-to {ros_core,ros_base,desktop,desktop_full}.
