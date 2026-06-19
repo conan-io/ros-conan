@@ -508,7 +508,7 @@ class Ros2KiltedConan(ConanFile):
 """
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
-        py_ver = str(self.options.python_version)
+        py_ver = str(self.info.options.python_version)
         pyenv = PyEnv(self, folder=self.package_folder, py_version=py_ver)
         pyenv.install(list(PIP_BUILD_TOOLS))
 
