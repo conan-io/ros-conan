@@ -107,7 +107,7 @@ class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
     version = "0.1.0"
     provides = "ros"  # To avoid name conflicts with other ros packages: ros-rolling, ros-humble, etc.
-    exports_sources = "conandata.yml", "patches/*"
+    exports_sources = "conandata.yml", "patches/*", "desktop_overlay.repos"
     # Shared stack + executables: keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH.
     package_type = "shared-library"
     license = "Apache-2.0"
@@ -234,8 +234,10 @@ class Ros2KiltedConan(ConanFile):
                 # by qt/opencv on Windows or macOS.
                 self.requires("xkbcommon/1.6.0", override=True)
 
-        if variant == "desktop_full":
-            self.requires("pcl/1.14.1")  # built with with_vtk=False on CCI; OK for headless, not for full viz.
+        if variant in ("desktop", "desktop_full"):
+            # pcl_conversions (perception_pcl) is a desktop+ dep; desktop_full
+            # adds PCL visualization which requires VTK (not on CCI yet).
+            self.requires("pcl/1.14.1")
             # self.requires("vtk/9.x")  # Not on ConanCenter; required for PCL visualization — provide via system or custom recipe.
 
     def build_requirements(self):
@@ -448,6 +450,15 @@ class Ros2KiltedConan(ConanFile):
         boot.install(["setuptools<80", "vcstool"])
         vcs_exe = os.path.join(boot.bin_path, "vcs")
         self.run(f'"{vcs_exe}" import --input "{repos}" src',
+                 cwd=self.source_folder)
+
+        # Packages required by ros2/variants `desktop` that are absent from the
+        # official ros2.repos (angles, depthimage_to_laserscan, joystick_drivers,
+        # perception_pcl, teleop_twist_joy, teleop_twist_keyboard,
+        # rqt_common_plugins). Cloned unconditionally so the source tree is
+        # variant-agnostic; --packages-up-to in build() limits what gets built.
+        overlay = os.path.join(self.export_sources_folder, "desktop_overlay.repos")
+        self.run(f'"{vcs_exe}" import --input "{overlay}" src',
                  cwd=self.source_folder)
 
         # ros2/variants tarball into src/ros2/variants/ so colcon resolves
