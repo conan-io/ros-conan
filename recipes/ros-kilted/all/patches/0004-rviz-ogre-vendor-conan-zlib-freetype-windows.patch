@@ -1,5 +1,5 @@
---- a/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt
-+++ b/src/ros2/rviz/rviz_ogre_vendor/CMakeLists.txt
+--- a/src/rviz_ogre_vendor/CMakeLists.txt
++++ b/src/rviz_ogre_vendor/CMakeLists.txt
 @@ -7,42 +7,8 @@ find_package(ament_cmake_vendor_package REQUIRED)
  option(RVIZ_OGRE_VENDOR_MANGLE_NAME_OF_LIBRARIES_USED_BY_RVIZ "If enabled, append a unique name to OgreMain, OgreOverlay and OgreGLSupport." FALSE)
  

@@ -1,5 +1,5 @@
---- a/src/ros2/rviz/rviz_ogre_vendor/rviz_ogre_vendor-extras.cmake.in
-+++ b/src/ros2/rviz/rviz_ogre_vendor/rviz_ogre_vendor-extras.cmake.in
+--- a/src/rviz_ogre_vendor/rviz_ogre_vendor-extras.cmake.in
++++ b/src/rviz_ogre_vendor/rviz_ogre_vendor-extras.cmake.in
 @@ -11,9 +11,6 @@
  endif()
  message(STATUS "Setting OGRE_DIR to: '${OGRE_DIR}'")

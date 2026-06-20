@@ -1,5 +1,6 @@
 import glob
 import os
+import pathlib
 
 from conan import ConanFile
 from conan.errors import ConanException
@@ -8,7 +9,6 @@ from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import (
     apply_conandata_patches,
     copy,
-    download,
     get,
     mkdir,
     replace_in_file,
@@ -107,7 +107,7 @@ class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
     version = "0.1.0"
     provides = "ros"  # To avoid name conflicts with other ros packages: ros-rolling, ros-humble, etc.
-    exports_sources = "conandata.yml", "patches/*", "desktop_overlay.repos", "desktop_full_overlay.repos"
+    exports_sources = "conandata.yml", "patches/*"
     # Shared stack + executables: keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH.
     package_type = "shared-library"
     license = "Apache-2.0"
@@ -434,38 +434,32 @@ class Ros2KiltedConan(ConanFile):
         replace_in_file(self, path, block, injection, strict=True)
 
     def source(self):
-        sources_data = self.conan_data["sources"][str(self.version)]
-        repos = os.path.join(self.source_folder, "ros2.repos")
-        download(self, url=sources_data["url"], sha256=sources_data["sha256"], filename=repos)
+        rosdistro_dir = os.path.join(self.source_folder, ".rosdistro")
+        get(self, **self.conan_data["sources"][self.version]["rosdistro"],
+            destination=rosdistro_dir, strip_root=True)
+
+        # setuptools<80 pinned: vcstool 0.3.0 imports pkg_resources (removed in setuptools 80).
+        boot_folder = os.path.join(self.source_folder, ".bootstrap")
+        boot = PyEnv(self, folder=boot_folder, name="vcs")
+        boot.install(["setuptools<80", "vcstool", "rosinstall_generator"])
+
+        # desktop_full is the superset; --packages-up-to in build() filters per variant.
+        os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(
+            rosdistro_dir, "index-v4.yaml").as_uri()
+        repos_path = os.path.join(self.source_folder, "sources.repos")
+        rig_exe = os.path.join(boot.bin_path, "rosinstall_generator")
+        with open(repos_path, "w", encoding="utf-8") as fh:
+            self.run(
+                f'"{rig_exe}" desktop_full --rosdistro kilted --deps --upstream --format repos',
+                stdout=fh, cwd=self.source_folder)
+
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
             rmdir(self, src_dir)
         mkdir(self, src_dir)
-
-        # Bootstrap a minimal PyEnv for `vcs`; the main PyEnv in generate()
-        # runs too late. setuptools<80 is pinned because vcstool 0.3.0 still
-        # imports pkg_resources (removed in setuptools 80).
-        boot_folder = os.path.join(self.source_folder, ".bootstrap")
-        boot = PyEnv(self, folder=boot_folder, name="vcs")
-        boot.install(["setuptools<80", "vcstool"])
         vcs_exe = os.path.join(boot.bin_path, "vcs")
-        self.run(f'"{vcs_exe}" import --input "{repos}" src',
+        self.run(f'"{vcs_exe}" import --input "{repos_path}" src',
                  cwd=self.source_folder)
-
-        # Packages required by ros2/variants `desktop` / `desktop_full` that are
-        # absent from the official ros2.repos. Cloned unconditionally so the
-        # source tree is variant-agnostic; --packages-up-to in build() limits
-        # what gets built.
-        for overlay_file in ("desktop_overlay.repos", "desktop_full_overlay.repos"):
-            overlay = os.path.join(self.export_sources_folder, overlay_file)
-            self.run(f'"{vcs_exe}" import --input "{overlay}" src',
-                     cwd=self.source_folder)
-
-        # ros2/variants tarball into src/ros2/variants/ so colcon resolves
-        # --packages-up-to {ros_core,ros_base,desktop,desktop_full}.
-        get(self, **sources_data["variants"],
-            destination=os.path.join(src_dir, "ros2", "variants"),
-            strip_root=True)
 
         apply_conandata_patches(self)
 
@@ -479,7 +473,7 @@ class Ros2KiltedConan(ConanFile):
         # `elseif (APPLE AND NOT APPLE_IOS)` so it's dead code on Linux/Windows.
         copy(self, "ogre-1.12.10-fix-macos-sysroot.patch",
              src=os.path.join(self.export_sources_folder, "patches"),
-             dst=os.path.join(self.source_folder, "src", "ros2", "rviz",
+             dst=os.path.join(self.source_folder, "src", "rviz",
                               "rviz_ogre_vendor", "patches"))
 
     def build(self):
