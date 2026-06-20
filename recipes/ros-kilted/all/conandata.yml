@@ -5,8 +5,8 @@
 sources:
   "0.1.0":
     rosdistro:
-      url: https://github.com/ros/rosdistro/archive/refs/tags/kilted/2025-07-28.tar.gz
-      sha256: dd1f42b28ab0876ebc87aebdd5544e472cb7ccd271af091ca56d10799a9aaf46
+      url: https://github.com/ros/rosdistro/archive/refs/tags/kilted/2026-06-17.tar.gz
+      sha256: fe78f42183d7e716e2a16bc292e9e2f10ca53bd0e3557d76946cc6096eab0a5d
 
 patches:
   "0.1.0":

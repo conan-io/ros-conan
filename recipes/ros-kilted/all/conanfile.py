@@ -453,6 +453,33 @@ class Ros2KiltedConan(ConanFile):
                 f'"{rig_exe}" desktop_full --rosdistro kilted --deps --upstream --format repos',
                 stdout=fh, cwd=self.source_folder)
 
+        # rosinstall_generator --upstream uses the release version number as the
+        # git tag, but some upstream repos tag with a 'v' prefix (e.g. v1.3.1).
+        # Detect and fix those entries by trying the v-prefixed tag.
+        import urllib.request
+        import yaml as _yaml
+        with open(repos_path, encoding="utf-8") as fh:
+            repos_data = _yaml.safe_load(fh.read())
+        for entry in repos_data.get("repositories", {}).values():
+            ver = entry.get("version", "")
+            url = entry.get("url", "").rstrip("/")
+            if not ver or ver.startswith("v") or "/" in ver:
+                continue  # already prefixed, a branch, or not semver
+            # Check whether the bare tag exists; if not, try with 'v'.
+            raw_base = url.replace("https://github.com/", "https://raw.githubusercontent.com/")
+            probe_bare = f"{raw_base}/{ver}/CMakeLists.txt"
+            probe_v    = f"{raw_base}/v{ver}/CMakeLists.txt"
+            try:
+                urllib.request.urlopen(probe_bare, timeout=5)
+            except Exception:
+                try:
+                    urllib.request.urlopen(probe_v, timeout=5)
+                    entry["version"] = f"v{ver}"
+                except Exception:
+                    pass  # leave as-is; vcs import will surface the real error
+        with open(repos_path, "w", encoding="utf-8") as fh:
+            _yaml.dump(repos_data, fh, default_flow_style=False)
+
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
             rmdir(self, src_dir)

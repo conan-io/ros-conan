@@ -1,7 +1,7 @@
-diff --git a/src/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch b/src/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch
+diff --git a/src/rviz/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch b/src/rviz/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch
 new file mode 100644
 --- /dev/null
-+++ b/src/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch
++++ b/src/rviz/rviz_ogre_vendor/patches/0006-ogre-lod-strategy-cpp17.patch
 @@ -0,0 +1,33 @@
 +diff --git a/OgreMain/src/OgreLodStrategy.cpp b/OgreMain/src/OgreLodStrategy.cpp
 +--- a/OgreMain/src/OgreLodStrategy.cpp
@@ -36,10 +36,10 @@ new file mode 100644
 +             return mesh1.value > mesh2.value;
 +         }
 +     };
-diff --git a/src/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch b/src/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch
+diff --git a/src/rviz/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch b/src/rviz/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch
 new file mode 100644
 --- /dev/null
-+++ b/src/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch
++++ b/src/rviz/rviz_ogre_vendor/patches/0007-ogre-dependencies-assimp-conan-target.patch
 @@ -0,0 +1,20 @@
 +diff --git a/CMake/Dependencies.cmake b/CMake/Dependencies.cmake
 +--- a/CMake/Dependencies.cmake

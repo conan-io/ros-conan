@@ -1,5 +1,5 @@
---- src/mcap_vendor/CMakeLists.txt
-+++ src/mcap_vendor/CMakeLists.txt
+--- src/rosbag2/mcap_vendor/CMakeLists.txt
++++ src/rosbag2/mcap_vendor/CMakeLists.txt
 @@ -32,18 +32,17 @@ endif()
  
  ## Define vendor macro

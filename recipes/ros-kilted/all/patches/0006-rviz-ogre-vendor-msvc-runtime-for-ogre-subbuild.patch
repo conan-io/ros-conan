@@ -1,6 +1,6 @@
-diff --git a/src/rviz_ogre_vendor/CMakeLists.txt b/src/rviz_ogre_vendor/CMakeLists.txt
---- a/src/rviz_ogre_vendor/CMakeLists.txt
-+++ b/src/rviz_ogre_vendor/CMakeLists.txt
+diff --git a/src/rviz/rviz_ogre_vendor/CMakeLists.txt b/src/rviz/rviz_ogre_vendor/CMakeLists.txt
+--- a/src/rviz/rviz_ogre_vendor/CMakeLists.txt
++++ b/src/rviz/rviz_ogre_vendor/CMakeLists.txt
 @@ -50,6 +50,15 @@ if(WIN32 AND CMAKE_TOOLCHAIN_FILE)
    list(APPEND OGRE_CMAKE_ARGS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
  endif()
