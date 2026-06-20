@@ -464,7 +464,7 @@ class Ros2KiltedConan(ConanFile):
         with open(repos_path, encoding="utf-8") as fh:
             repos_data = _yaml.safe_load(fh.read())
         for entry in repos_data.get("repositories", {}).values():
-            url = entry.get("url", "").rstrip("/")
+            url = entry.get("url", "").rstrip("/").removesuffix(".git")
             ver = entry.get("version", "")
             if url in _V_PREFIX_URLS and ver and not ver.startswith("v"):
                 entry["version"] = f"v{ver}"
