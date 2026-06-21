@@ -154,6 +154,10 @@ class Ros2KiltedConan(ConanFile):
         # desktop_full variant fails.
         if str(self.options.variant) in ("desktop", "desktop_full"):
             self.options["boost/*"].header_only = False
+            # cv_bridge (vision_opencv) links Boost::python<ver>; build Boost.Python
+            # so CMakeDeps generates that component target.
+            self.options["boost/*"].without_python = False
+            self.options["boost/*"].python_version = str(self.options.python_version)
 
     def layout(self):
         # Single-tree colcon workspace: src/, build/, install/, log/ under ros2_ws/
