@@ -36,3 +36,5 @@ patches:
       patch_description: gz_math_vendor - prepend <install>/opt/gz_math_vendor in extras so downstream vendor ExternalProject configs can resolve find_package(gz-math8) on Windows
     - patch_file: patches/0014-iceoryx-hoofs-time-include-chrono.patch
       patch_description: iceoryx_hoofs - explicit #include <chrono> in win/source/time.cpp (MSVC 17.13+ no longer transitively pulls in std::chrono::system_clock; iceoryx upstream PR #2378 not backported to v2.0.5)
+    - patch_file: patches/0015-qt-gui-cpp-shiboken-find-qt5-components.patch
+      patch_description: qt_gui_cpp_shiboken - use find_package(Qt5 COMPONENTS Widgets) instead of find_package(Qt5Widgets); Conan CMakeDeps generates Qt5Config.cmake but not Qt5WidgetsConfig.cmake
