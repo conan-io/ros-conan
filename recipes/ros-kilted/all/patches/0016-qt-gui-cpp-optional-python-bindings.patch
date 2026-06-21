@@ -6,3 +6,4 @@
 -  message(FATAL_ERROR "No Python binding generator found.")
 +  message(WARNING "No Python binding generator found, skipping Python bindings.")
  endif()
+
