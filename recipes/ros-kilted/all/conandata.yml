@@ -42,3 +42,5 @@ patches:
       patch_description: qt_gui_cpp - downgrade FATAL_ERROR to WARNING when no Python binding generator (Shiboken/SIP) is available; neither is present in a Conan-only build
     - patch_file: patches/0017-rqt-image-view-find-qt5-components.patch
       patch_description: rqt_image_view - use find_package(Qt5 COMPONENTS Widgets) instead of find_package(Qt5Widgets); Conan CMakeDeps generates Qt5Config.cmake but not Qt5WidgetsConfig.cmake
+    - patch_file: patches/0018-rqt-gui-cpp-include-unistd-for-getpid.patch
+      patch_description: rqt_gui_cpp - add #include <unistd.h> for getpid() in nodelet_plugin_provider.cpp; release/kilted/rqt_gui_cpp/1.9.2-1 predates upstream PR #342 (backport of #341), needed on macOS/AppleClang where unistd.h is not transitively included
