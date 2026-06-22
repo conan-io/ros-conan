@@ -154,9 +154,8 @@ class Ros2KiltedConan(ConanFile):
         # desktop+ variants fail.
         if str(self.options.variant) in ("desktop", "desktop_full"):
             self.options["boost/*"].header_only = False
-        if str(self.options.variant) == "desktop_full":
-            # cv_bridge (vision_opencv/perception) links Boost::python<ver>; build
-            # Boost.Python so CMakeDeps generates that component target.
+            # cv_bridge (vision_opencv) is a transitive dep of desktop and links
+            # Boost::python<ver>; build Boost.Python so CMakeDeps generates that target.
             self.options["boost/*"].without_python = False
             self.options["boost/*"].python_version = str(self.options.python_version)
 
