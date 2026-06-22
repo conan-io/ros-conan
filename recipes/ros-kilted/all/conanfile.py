@@ -73,13 +73,7 @@ PIP_BUILD_TOOLS = (
     "pyflakes==3.2.0",
     #"pygraphviz==1.11",
     "pyparsing==3.1.1",
-    # PyQt5 / PyQt5-sip are only needed by rqt_* GUI packages. They are NOT
-    # in the --packages-up-to rclcpp subset we build, and installing them
-    # from pip triggers a from-source PyQt5 build that requires qmake (Qt's
-    # build tool) on the host. On macOS without Qt installed that fails with
-    # `PyProjectOptionException('qmake', ...)`. Re-enable only when the recipe
-    # scales up to packages that genuinely need them.
-    # "PyQt5==5.15.9",
+    "PyQt5==5.15.9",
     # "PyQt5-sip==12.12.2",
     "pytest==7.4.4",
     "pytest-cov==4.1.0",
