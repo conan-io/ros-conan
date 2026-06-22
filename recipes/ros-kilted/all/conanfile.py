@@ -73,7 +73,7 @@ PIP_BUILD_TOOLS = (
     "pyflakes==3.2.0",
     #"pygraphviz==1.11",
     "pyparsing==3.1.1",
-    "PyQt5==5.15.9",
+    "PyQt5==5.15.11",
     # "PyQt5-sip==12.12.2",
     "pytest==7.4.4",
     "pytest-cov==4.1.0",
