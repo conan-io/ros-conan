@@ -151,11 +151,12 @@ class Ros2KiltedConan(ConanFile):
     def configure(self):
         # PCL's io module links Boost::iostreams. If boost gets resolved as
         # header-only, CMakeDeps does not generate that imported target and
-        # desktop_full variant fails.
+        # desktop+ variants fail.
         if str(self.options.variant) in ("desktop", "desktop_full"):
             self.options["boost/*"].header_only = False
-            # cv_bridge (vision_opencv) links Boost::python<ver>; build Boost.Python
-            # so CMakeDeps generates that component target.
+        if str(self.options.variant) == "desktop_full":
+            # cv_bridge (vision_opencv/perception) links Boost::python<ver>; build
+            # Boost.Python so CMakeDeps generates that component target.
             self.options["boost/*"].without_python = False
             self.options["boost/*"].python_version = str(self.options.python_version)
 
