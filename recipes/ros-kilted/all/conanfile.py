@@ -158,7 +158,6 @@ class Ros2KiltedConan(ConanFile):
             # so CMakeDeps generates that component target.
             self.options["boost/*"].without_python = False
             self.options["boost/*"].python_version = str(self.options.python_version)
-            self.options["boost/*"].without_numpy = True
 
     def layout(self):
         # Single-tree colcon workspace: src/, build/, install/, log/ under ros2_ws/
