@@ -84,7 +84,6 @@ PIP_BUILD_TOOLS = (
     "pytest-timeout==2.2.0",
     "python-dateutil==2.8.2",
     "fastjsonschema==2.19.0",
-    #"python-orocos-kdl==1.5.1",
     "PyYAML==6.0.1",
     "setuptools==68.1.2",
     "six==1.16.0",
@@ -152,6 +151,8 @@ class Ros2KiltedConan(ConanFile):
             # Boost::python<ver>; build Boost.Python so CMakeDeps generates that target.
             self.options["boost/*"].without_python = False
             self.options["boost/*"].python_version = str(self.options.python_version)
+        if str(self.options.variant) in ("base", "desktop", "desktop_full"):
+            self.options["python_orocos_kdl/*"].python_version = str(self.options.python_version)
 
     def layout(self):
         # Single-tree colcon workspace: src/, build/, install/, log/ under ros2_ws/
