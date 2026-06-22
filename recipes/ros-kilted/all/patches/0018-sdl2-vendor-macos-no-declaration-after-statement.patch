@@ -1,6 +1,7 @@
 --- src/joystick_drivers/sdl2_vendor/CMakeLists.txt
 +++ src/joystick_drivers/sdl2_vendor/CMakeLists.txt
-@@ -8,5 +8,11 @@ find_package(ament_cmake REQUIRED)
+@@ -7,6 +7,11 @@
+
  find_package(ament_cmake REQUIRED)
 
 +# SDL2-2.0.20 enables -Wdeclaration-after-statement for C (including .m files).
@@ -8,11 +9,10 @@
 +if(APPLE)
 +  set(_sdl_c_flags "-Wno-declaration-after-statement")
 +endif()
-+
  if(NOT FORCE_BUILD_VENDOR_PKG)
    list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
    find_package(sdl2_custom QUIET)
-@@ -25,6 +31,7 @@ if(NOT SDL2_FOUND)
+@@ -25,6 +30,7 @@
        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
        -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
