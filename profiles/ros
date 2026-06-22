@@ -10,9 +10,6 @@ python_orocos_kdl/*:python_version={{ ".".join(platform.python_version_tuple()[:
 opencv/*:with_ffmpeg=False
 {% endif %}
 
-[tool_requires]
-*: cmake/3.29.3
-
 {% if platform.system() == "Linux" %}
 [conf]
 tools.system.package_manager:mode=install
