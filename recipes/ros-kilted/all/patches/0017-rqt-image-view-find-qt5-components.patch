@@ -1,0 +1,7 @@
+--- src/ros-visualization/rqt_image_view/CMakeLists.txt
++++ src/ros-visualization/rqt_image_view/CMakeLists.txt
+@@ -31,3 +31,3 @@
+ find_package(cv_bridge REQUIRED)
+-find_package(Qt5Widgets REQUIRED)
++find_package(Qt5 COMPONENTS Widgets REQUIRED)
+ find_package(ament_cmake_python REQUIRED)

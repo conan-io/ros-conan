@@ -149,11 +149,14 @@ class Ros2KiltedConan(ConanFile):
     }
 
     def configure(self):
-        # PCL's io module links Boost::iostreams. If boost gets resolved as
-        # header-only, CMakeDeps does not generate that imported target and
-        # desktop_full variant fails.
-        if str(self.options.variant) == "desktop_full":
+        if str(self.options.variant) in ("desktop", "desktop_full"):
+            # PCL (pcl_conversions) links Boost::iostreams; header-only Boost
+            # would not generate that CMakeDeps target.
             self.options["boost/*"].header_only = False
+            # cv_bridge (vision_opencv) links Boost::python<ver>; build
+            # Boost.Python so CMakeDeps generates that component target.
+            self.options["boost/*"].without_python = False
+            self.options["boost/*"].python_version = str(self.options.python_version)
 
     def layout(self):
         # Single-tree colcon workspace: src/, build/, install/, log/ under ros2_ws/
@@ -455,6 +458,17 @@ class Ros2KiltedConan(ConanFile):
         get(self, **sources_data["variants"],
             destination=os.path.join(src_dir, "ros2", "variants"),
             strip_root=True)
+
+        # Extra repos needed for desktop+ that are absent from ros2.repos.
+        # Written to a temporary repos file and imported with vcs.
+        extras = sources_data.get("desktop_extras")
+        if extras:
+            import yaml as _yaml
+            extras_repos = os.path.join(self.source_folder, "desktop_extras.repos")
+            with open(extras_repos, "w", encoding="utf-8") as fh:
+                _yaml.dump({"repositories": extras}, fh, default_flow_style=False)
+            self.run(f'"{vcs_exe}" import --input "{extras_repos}" src',
+                     cwd=self.source_folder)
 
         apply_conandata_patches(self)
 
