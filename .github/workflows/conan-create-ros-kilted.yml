@@ -85,7 +85,7 @@ jobs:
       - name: Install latest Conan
         run: |
           python -m pip install --upgrade pip
-          pip install conan numpy
+          pip install conan "numpy<2"
           conan --version
 
       - name: Detect Conan profile
