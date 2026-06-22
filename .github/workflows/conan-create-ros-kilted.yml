@@ -32,6 +32,15 @@ jobs:
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
             variant: desktop
+            run_examples: false
+          - runner: windows-2022
+            conan_home: C:/.c2
+            variant: desktop
+            run_examples: false
+          - runner: macos-latest
+            conan_home: /tmp/conan-ci
+            variant: desktop
+            run_examples: false
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -135,6 +144,7 @@ jobs:
           -o ros-kilted/*:variant=${{ matrix.variant }}
 
       - name: Find and run examples
+        if: matrix.run_examples != false
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
