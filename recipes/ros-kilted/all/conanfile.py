@@ -214,6 +214,10 @@ class Ros2KiltedConan(ConanFile):
             self.requires("freetype/2.13.2")
             self.requires("libcurl/8.5.0")
             self.requires("openjpeg/2.5.2", override=True)
+            # sdl2_vendor calls find_package(SDL2) before its ExternalProject; Conan's
+            # CMakeDeps-generated SDL2Config.cmake satisfies that check automatically,
+            # so the ExternalProject is skipped entirely (no ExternalProject compile needed).
+            self.requires("sdl/2.32.10")
             # Default qt/*:shared=False is static-only (no qwindows.dll under plugins/);
             # RViz/Qt QPA still loads platform plugins at runtime → require shared Qt.
             self.requires("qt/5.15.18", options={"shared": True})
