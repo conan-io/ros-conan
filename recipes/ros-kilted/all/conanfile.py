@@ -532,6 +532,7 @@ class Ros2KiltedConan(ConanFile):
         the build-time Python minor version into the fingerprint, so C-extensions are never loaded
         under an incompatible interpreter.
 """
+        import shutil
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
         py_ver = str(self.info.options.python_version)
@@ -540,8 +541,69 @@ class Ros2KiltedConan(ConanFile):
 
         if str(self.info.settings.os) == "Windows":
             scripts_dir = os.path.join(self.package_folder, "Scripts")
+            lib_dir = os.path.join(self.package_folder, "Lib")
             if not os.path.isdir(scripts_dir):
                 return
+            new_shebang = f"#!{pyenv.env_exe}\r\n".encode("utf-8")
+
+            # `ros2 run <pkg> <exec>` on Windows walks `<prefix>/lib/<pkg>/`,
+            # picks the first basename match, and `subprocess.Popen`s it. rqt
+            # packages (and rosidl generators) install both
+            #   data_files=[('lib/<pkg>', ['scripts/<exec>'])]   # bare py script
+            # AND
+            #   entry_points={'console_scripts': ['<exec> = ...']}  # Scripts/<exec>{.exe,-script.py}
+            # On Linux the bare script's `#!python3` shebang Just Works; on
+            # Windows CreateProcess rejects a Python text file with WinError
+            # 193 ("%1 is not a valid Win32 application"). The rqt setup.cfg
+            # `install_scripts=$base/lib/<pkg>` directive that's *meant* to
+            # redirect the entry-point pair into lib/<pkg>/ is ignored by
+            # colcon-core 0.17.x (only the hyphen-form `install-scripts` is
+            # parsed there) AND by setuptools when it runs inside our venv.
+            # Mirror Scripts/<exec>{.exe,-script.py} into the corresponding
+            # Lib/<pkg>/ ourselves and drop the bare script so ros2 run picks
+            # up the cli-64 launcher and reads its sibling `-script.py`
+            # shebang to find the relocated python interpreter.
+            mirrored = set()
+            if os.path.isdir(lib_dir):
+                for pkg_name in os.listdir(lib_dir):
+                    pkg_libdir = os.path.join(lib_dir, pkg_name)
+                    if not os.path.isdir(pkg_libdir):
+                        continue
+                    for entry_name in list(os.listdir(pkg_libdir)):
+                        bare_path = os.path.join(pkg_libdir, entry_name)
+                        if not os.path.isfile(bare_path):
+                            continue
+                        if "." in entry_name:
+                            continue
+                        try:
+                            with open(bare_path, "rb") as fh:
+                                head = fh.read(256)
+                        except OSError:
+                            continue
+                        if not (head.startswith(b"#!") and b"python" in head):
+                            continue
+                        src_script = os.path.join(
+                            scripts_dir, entry_name + "-script.py")
+                        src_exe = os.path.join(
+                            scripts_dir, entry_name + ".exe")
+                        if not (os.path.isfile(src_script)
+                                and os.path.isfile(src_exe)):
+                            continue
+                        with open(src_script, "rb") as fh:
+                            src_data = fh.read()
+                        _, sep, rest = src_data.partition(b"\n")
+                        if not sep:
+                            continue
+                        with open(os.path.join(
+                                pkg_libdir, entry_name + "-script.py"),
+                                "wb") as fh:
+                            fh.write(new_shebang + rest)
+                        shutil.copy2(
+                            src_exe,
+                            os.path.join(pkg_libdir, entry_name + ".exe"))
+                        os.remove(bare_path)
+                        mirrored.add(entry_name)
+
             cmd_template = (
                 "@echo off\r\n"
                 f'"{pyenv.env_exe}" "%~dp0%~n0-script.py" %*\r\n'
