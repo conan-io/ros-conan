@@ -1,5 +1,5 @@
---- src/iceoryx/iceoryx_hoofs/CMakeLists.txt
-+++ src/iceoryx/iceoryx_hoofs/CMakeLists.txt
+--- src/iceoryx_hoofs/CMakeLists.txt
++++ src/iceoryx_hoofs/CMakeLists.txt
 @@ -204,7 +204,7 @@
  )
  
@@ -9,8 +9,8 @@
  endif()
  
  target_compile_options(iceoryx_hoofs PRIVATE ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS})
---- src/iceoryx/iceoryx_hoofs/platform/linux/include/iceoryx_hoofs/platform/acl.hpp
-+++ src/iceoryx/iceoryx_hoofs/platform/linux/include/iceoryx_hoofs/platform/acl.hpp
+--- src/iceoryx_hoofs/platform/linux/include/iceoryx_hoofs/platform/acl.hpp
++++ src/iceoryx_hoofs/platform/linux/include/iceoryx_hoofs/platform/acl.hpp
 @@ -17,6 +17,92 @@
  #ifndef IOX_HOOFS_LINUX_PLATFORM_ACL_HPP
  #define IOX_HOOFS_LINUX_PLATFORM_ACL_HPP
