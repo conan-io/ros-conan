@@ -11,6 +11,7 @@ from conan.tools.files import (
     apply_conandata_patches,
     copy,
     get,
+    load,
     mkdir,
     replace_in_file,
     rmdir,
@@ -540,136 +541,87 @@ class Ros2KiltedConan(ConanFile):
         if str(self.info.settings.os) == "Windows":
             scripts_dir = os.path.join(self.package_folder, "Scripts")
             lib_dir = os.path.join(self.package_folder, "Lib")
-            new_shebang = f"#!{pyenv.env_exe}\r\n".encode("utf-8")
+            shebang = f"#!{pyenv.env_exe}\n"
 
-            # distlib bundles arch-keyed cli-64 equivalents (`t<arch>.exe`)
-            # next to itself and we already pin distlib in PIP_BUILD_TOOLS,
-            # so the launcher binaries are guaranteed present in the per-
-            # consumer pyenv. They are the canonical "simple launcher"
-            # format: the .exe parses the sibling `<name>-script.py`
-            # shebang to locate Python, identical to setuptools cli-64.exe.
-            arch_to_launcher = {
-                "x86_64": "t64.exe",
-                "x86": "t32.exe",
-                "armv8": "t64-arm.exe",
-            }
-            launcher_name = arch_to_launcher.get(
-                str(self.info.settings.arch), "t64.exe")
+            # `ros2 run <pkg> <exec>` walks `<prefix>/lib/<pkg>/` and
+            # `subprocess.Popen`s the first basename match. Upstream rqt-
+            # style and rosidl_* packages plant `#!python3` text files
+            # there (data_files); CreateProcess rejects them with WinError
+            # 193 because they are not PE images. Replace each one with a
+            # cli-64 launcher pair (`<name>.exe` + `<name>-script.py`)
+            # using distlib's arch-keyed `t<arch>.exe` stub - same simple-
+            # launcher format as setuptools' cli-64.exe: the .exe parses
+            # the sibling script's shebang at runtime to find Python. Any
+            # pre-existing `<name>-script.py` (entry_points pair routed
+            # into lib/<pkg>/ by colcon-core >=0.21 honouring setup.cfg's
+            # `install_scripts=$base/lib/<pkg>`, see PR
+            # colcon/colcon-core#720) gets its shebang retargeted at the
+            # relocated pyenv interpreter since setuptools embedded the
+            # build-time venv path there.
             launcher_src = os.path.join(
-                pyenv.env_dir, "Lib", "site-packages",
-                "distlib", launcher_name)
+                pyenv.env_dir, "Lib", "site-packages", "distlib",
+                {"x86_64": "t64.exe",
+                 "x86": "t32.exe",
+                 "armv8": "t64-arm.exe"}.get(
+                    str(self.info.settings.arch), "t64.exe"))
             if not os.path.isfile(launcher_src):
                 raise ConanException(
                     f"distlib launcher binary missing at {launcher_src}; "
                     "ensure 'distlib' is in PIP_BUILD_TOOLS.")
 
-            def _rewrite_shebang(path):
-                # cli-64 stub reads sibling -script.py shebang to find Python;
-                # setuptools wrote it pointing at the build-time venv path.
-                with open(path, "rb") as fh:
-                    data = fh.read()
-                _, sep, rest = data.partition(b"\n")
-                if not sep or not data.startswith(b"#!"):
-                    return
-                with open(path, "wb") as fh:
-                    fh.write(new_shebang + rest)
+            def _strip_shebang(text):
+                head, sep, rest = text.partition("\n")
+                return rest if sep and head.startswith("#!") else text
 
-            def _synthesize_launcher(bare_path, out_dir, name):
-                # Promote a bare `lib/<pkg>/<exec>` Python script (the
-                # data_files-only flavour shipped by rqt_bag, rqt_gui, the
-                # rosidl_generator_* / rosidl_typesupport_* shims, ...) into
-                # a cli-64 pair so ros2 run can launch it on Windows.
-                # CreateProcess succeeds on the .exe, the .exe reads the
-                # sibling `-script.py` shebang we plant here, and Python
-                # then evaluates the original script body.
-                with open(bare_path, "rb") as fh:
-                    data = fh.read()
-                _, sep, body = data.partition(b"\n")
-                if not sep or not data.startswith(b"#!"):
-                    body = data
-                with open(os.path.join(out_dir, name + "-script.py"),
-                          "wb") as fh:
-                    fh.write(new_shebang + body)
+            def _install_pair(out_dir, name, body):
+                save(self, os.path.join(out_dir, name + "-script.py"),
+                     shebang + _strip_shebang(body))
                 shutil.copy2(launcher_src,
                              os.path.join(out_dir, name + ".exe"))
 
-            # `ros2 run <pkg> <exec>` on Windows walks `<prefix>/lib/<pkg>/`,
-            # collects basename matches (incl. PATHEXT entries), and
-            # `subprocess.Popen`s the result. rqt-style packages install both
-            #   data_files=[('lib/<pkg>', ['scripts/<exec>'])]
-            #   entry_points={'console_scripts': ['<exec> = ...']}
-            # plus a setup.cfg `install_scripts=$base/lib/<pkg>` that pins the
-            # entry-point pair into lib/<pkg>/ (colcon-core >=0.21 honours both
-            # `install-scripts` and `install_scripts` keys, see PR
-            # colcon/colcon-core#720; older colcon silently dropped the
-            # underscore form). The Linux entry-point wrapper is also named
-            # `<exec>` and overwrites the bare data_files script; on Windows
-            # the entry-point pair is `<exec>.exe + <exec>-script.py`, so the
-            # bare `<exec>` (text file, `#!python3`) coexists and ros2 run
-            # picks it first, hitting CreateProcess WinError 193. Drop the
-            # bare script when an .exe sibling is present and rewrite the
-            # -script.py shebangs so the cli-64 stub launches our pyenv.
-            if os.path.isdir(lib_dir):
-                for pkg_name in os.listdir(lib_dir):
-                    pkg_libdir = os.path.join(lib_dir, pkg_name)
-                    if not os.path.isdir(pkg_libdir):
+            for pkg_name in (os.listdir(lib_dir)
+                             if os.path.isdir(lib_dir) else ()):
+                pkg_libdir = os.path.join(lib_dir, pkg_name)
+                if not os.path.isdir(pkg_libdir):
+                    continue
+                # Pass 1: retarget shebangs of any pre-existing -script.py.
+                for name in os.listdir(pkg_libdir):
+                    if not name.endswith("-script.py"):
                         continue
-                    entries = os.listdir(pkg_libdir)
-                    for name in entries:
-                        if name.endswith("-script.py"):
-                            _rewrite_shebang(os.path.join(pkg_libdir, name))
-                    for name in entries:
-                        if "." in name:
-                            continue
-                        bare_path = os.path.join(pkg_libdir, name)
-                        if not os.path.isfile(bare_path):
-                            continue
-                        try:
-                            with open(bare_path, "rb") as fh:
-                                head = fh.read(256)
-                        except OSError:
-                            continue
-                        if not (head.startswith(b"#!") and b"python" in head):
-                            continue
-                        local_exe = os.path.join(pkg_libdir, name + ".exe")
-                        local_script = os.path.join(
-                            pkg_libdir, name + "-script.py")
-                        if (os.path.isfile(local_exe)
-                                and os.path.isfile(local_script)):
-                            os.remove(bare_path)
-                            continue
-                        # Fallback for `entry_points` packages that ship no
-                        # setup.cfg `install_scripts` redirect: the cli-64
-                        # pair landed in Scripts/, mirror it into lib/<pkg>/
-                        # so ros2 run can find it.
-                        mirrored_from_scripts = False
-                        if os.path.isdir(scripts_dir):
-                            src_script = os.path.join(
-                                scripts_dir, name + "-script.py")
-                            src_exe = os.path.join(
-                                scripts_dir, name + ".exe")
-                            if (os.path.isfile(src_script)
-                                    and os.path.isfile(src_exe)):
-                                with open(src_script, "rb") as fh:
-                                    src_data = fh.read()
-                                _, sep, rest = src_data.partition(b"\n")
-                                if sep:
-                                    with open(local_script, "wb") as fh:
-                                        fh.write(new_shebang + rest)
-                                    shutil.copy2(src_exe, local_exe)
-                                    mirrored_from_scripts = True
-                        if mirrored_from_scripts:
-                            os.remove(bare_path)
-                            continue
-                        # Last resort: package only ships a bare data_files
-                        # Python script with no `entry_points` counterpart
-                        # anywhere (rqt_bag, rqt_gui, rosidl_generator_*,
-                        # rosidl_typesupport_*, ...). Synthesise a cli-64
-                        # launcher pair from the script body so
-                        # `ros2 run <pkg> <name>` finds an .exe to spawn.
-                        _synthesize_launcher(bare_path, pkg_libdir, name)
-                        os.remove(bare_path)
+                    p = os.path.join(pkg_libdir, name)
+                    text = load(self, p)
+                    if text.startswith("#!"):
+                        save(self, p, shebang + _strip_shebang(text))
+                # Pass 2: replace bare data_files Python scripts (no
+                # extension, `#!python` header) with cli-64 launcher pairs.
+                for name in os.listdir(pkg_libdir):
+                    if "." in name:
+                        continue
+                    bare = os.path.join(pkg_libdir, name)
+                    if not os.path.isfile(bare):
+                        continue
+                    try:
+                        body = load(self, bare)
+                    except UnicodeDecodeError:
+                        continue
+                    if not (body.startswith("#!")
+                            and "python" in body[:256]):
+                        continue
+                    if os.path.isfile(
+                            os.path.join(pkg_libdir, name + ".exe")):
+                        os.remove(bare)
+                        continue
+                    src_script = os.path.join(
+                        scripts_dir, name + "-script.py")
+                    if os.path.isfile(src_script):
+                        body = load(self, src_script)
+                    _install_pair(pkg_libdir, name, body)
+                    os.remove(bare)
 
+            # Scripts/ is on PATH; rewrap entry-points wrappers as
+            # relocatable .cmd shims (which hardcode our pyenv python) and
+            # drop the .exe stub so PATHEXT (which prefers .EXE > .CMD)
+            # does not rank the build-time stub above the shim.
             if os.path.isdir(scripts_dir):
                 cmd_template = (
                     "@echo off\r\n"
@@ -681,8 +633,6 @@ class Ros2KiltedConan(ConanFile):
                     entry = name[:-len("-script.py")]
                     save(self, os.path.join(scripts_dir, entry + ".cmd"),
                          cmd_template)
-                    # PATHEXT prefers .EXE over .CMD; drop the broken stub
-                    # so cmd.exe resolves `ros2` to our shim instead.
                     exe = os.path.join(scripts_dir, entry + ".exe")
                     if os.path.isfile(exe):
                         os.remove(exe)
