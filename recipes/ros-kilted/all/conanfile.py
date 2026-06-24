@@ -344,7 +344,6 @@ class Ros2KiltedConan(ConanFile):
         tc.cache_variables["BUILD_TESTING"] = False
         tc.variables["BUILD_TESTING"] = False
         # Disable cv_bridge python to avoid Boost::python require due to numpy
-        tc.cache_variables["CV_BRIDGE_DISABLE_PYTHON"] = True
         tc.variables["CV_BRIDGE_DISABLE_PYTHON"] = True
         tc.cache_variables["Python3_ROOT_DIR"] = pyenv.env_dir
         tc.cache_variables["Python3_EXECUTABLE"] = pyenv.env_exe
