@@ -1,14 +1,15 @@
 import glob
 import os
+import pathlib
 
 from conan import ConanFile
 from conan.errors import ConanException
+from conan.tools.build import check_min_cppstd
 from conan.tools.cmake import CMakeDeps, CMakeToolchain
 from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import (
     apply_conandata_patches,
     copy,
-    download,
     get,
     mkdir,
     replace_in_file,
@@ -17,7 +18,6 @@ from conan.tools.files import (
 )
 from conan.tools.microsoft import VCVars
 from conan.tools.system import PyEnv
-from conan.tools.system.package_manager import Apt
 
 PIP_BUILD_TOOLS = (
     # --- colcon ---
@@ -73,13 +73,7 @@ PIP_BUILD_TOOLS = (
     "pyflakes==3.2.0",
     #"pygraphviz==1.11",
     "pyparsing==3.1.1",
-    # PyQt5 / PyQt5-sip are only needed by rqt_* GUI packages. They are NOT
-    # in the --packages-up-to rclcpp subset we build, and installing them
-    # from pip triggers a from-source PyQt5 build that requires qmake (Qt's
-    # build tool) on the host. On macOS without Qt installed that fails with
-    # `PyProjectOptionException('qmake', ...)`. Re-enable only when the recipe
-    # scales up to packages that genuinely need them.
-    # "PyQt5==5.15.9",
+    "PyQt5==5.15.11",
     # "PyQt5-sip==12.12.2",
     "pytest==7.4.4",
     "pytest-cov==4.1.0",
@@ -90,7 +84,6 @@ PIP_BUILD_TOOLS = (
     "pytest-timeout==2.2.0",
     "python-dateutil==2.8.2",
     "fastjsonschema==2.19.0",
-    #"python-orocos-kdl==1.5.1",
     "PyYAML==6.0.1",
     "setuptools==68.1.2",
     "six==1.16.0",
@@ -148,12 +141,23 @@ class Ros2KiltedConan(ConanFile):
         "desktop_full": "desktop_full",
     }
 
+    def validate(self):
+        check_min_cppstd(self, 17)
+
     def configure(self):
         # PCL's io module links Boost::iostreams. If boost gets resolved as
         # header-only, CMakeDeps does not generate that imported target and
-        # desktop_full variant fails.
-        if str(self.options.variant) == "desktop_full":
+        # desktop+ variants fail.
+        if str(self.options.variant) in ("desktop", "desktop_full"):
             self.options["boost/*"].header_only = False
+            # cv_bridge (vision_opencv) is a transitive dep of desktop and links
+            # Boost::python<ver>; build Boost.Python so CMakeDeps generates that target.
+            self.options["boost/*"].without_python = False
+            self.options["boost/*"].python_version = str(self.options.python_version)
+            if self.settings.os == "Windows":
+                self.options["opencv/*"].with_ffmpeg = False
+        if str(self.options.variant) in ("base", "desktop", "desktop_full"):
+            self.options["python_orocos_kdl/*"].python_version = str(self.options.python_version)
 
     def layout(self):
         # Single-tree colcon workspace: src/, build/, install/, log/ under ros2_ws/
@@ -211,6 +215,10 @@ class Ros2KiltedConan(ConanFile):
             self.requires("freetype/2.13.2")
             self.requires("libcurl/8.5.0")
             self.requires("openjpeg/2.5.2", override=True)
+            # sdl2_vendor calls find_package(SDL2) before its ExternalProject; Conan's
+            # CMakeDeps-generated SDL2Config.cmake satisfies that check automatically,
+            # so the ExternalProject is skipped entirely (no ExternalProject compile needed).
+            self.requires("sdl/2.32.10")
             # Default qt/*:shared=False is static-only (no qwindows.dll under plugins/);
             # RViz/Qt QPA still loads platform plugins at runtime → require shared Qt.
             self.requires("qt/5.15.18", options={"shared": True})
@@ -234,8 +242,10 @@ class Ros2KiltedConan(ConanFile):
                 # by qt/opencv on Windows or macOS.
                 self.requires("xkbcommon/1.6.0", override=True)
 
-        if variant == "desktop_full":
-            self.requires("pcl/1.14.1")  # built with with_vtk=False on CCI; OK for headless, not for full viz.
+        if variant in ("desktop", "desktop_full"):
+            # pcl_conversions (perception_pcl) is a desktop+ dep; desktop_full
+            # adds PCL visualization which requires VTK (not on CCI yet).
+            self.requires("pcl/1.14.1")
             # self.requires("vtk/9.x")  # Not on ConanCenter; required for PCL visualization — provide via system or custom recipe.
 
     def build_requirements(self):
@@ -244,20 +254,6 @@ class Ros2KiltedConan(ConanFile):
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
-
-    def system_requirements(self):
-        # iceoryx release_2.0 hard-links -lacl; see iceoryx_hoofs CMakeLists.
-        # No ConanCenter recipe wraps libacl, so we install it directly via apt
-        # on Linux (no-op elsewhere - macOS/Windows use stub ACL headers shipped
-        # with iceoryx). Every other Linux build dep (X11/GL/GLU/Xaw/Xrandr/Xt
-        # for rviz_ogre_vendor) is covered by Conan: xorg/system + opengl/system
-        # come in transitively via qt+opencv, and glu/system is required
-        # directly in requirements() above for the desktop variants. Their own
-        # system_requirements() runs the corresponding apt installs, with
-        # cross-distro mapping built in.
-        if self.settings.os != "Linux":
-            return
-        Apt(self).install(["libacl1-dev"], update=True, check=True)
 
     def generate(self):
         pyenv = PyEnv(self, py_version=str(self.options.python_version))
@@ -432,29 +428,50 @@ class Ros2KiltedConan(ConanFile):
         replace_in_file(self, path, block, injection, strict=True)
 
     def source(self):
-        sources_data = self.conan_data["sources"][str(self.version)]
-        repos = os.path.join(self.source_folder, "ros2.repos")
-        download(self, url=sources_data["url"], sha256=sources_data["sha256"], filename=repos)
+        rosdistro_dir = os.path.join(self.source_folder, ".rosdistro")
+        get(self, **self.conan_data["sources"][self.version]["rosdistro"],
+            destination=rosdistro_dir, strip_root=True)
+
+        # setuptools<80 pinned: vcstool 0.3.0 imports pkg_resources (removed in setuptools 80).
+        boot_folder = os.path.join(self.source_folder, ".bootstrap")
+        boot = PyEnv(self, folder=boot_folder, name="vcs")
+        boot.install(["setuptools<80", "vcstool", "rosinstall_generator"])
+
+        # desktop_full is the superset; --packages-up-to in build() filters per variant.
+        os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(
+            rosdistro_dir, "index-v4.yaml").as_uri()
+        repos_path = os.path.join(self.source_folder, "sources.repos")
+        rig_exe = os.path.join(boot.bin_path, "rosinstall_generator")
+        with open(repos_path, "w", encoding="utf-8") as fh:
+            self.run(
+                f'"{rig_exe}" desktop_full --rosdistro kilted --deps --upstream --format repos',
+                stdout=fh, cwd=self.source_folder)
+
+        # rosinstall_generator --upstream uses the release version number as the
+        # git tag, but a handful of non-ROS upstreams tag with a 'v' prefix.
+        # Add repos here when vcs reports "fatal: invalid reference: X.Y.Z".
+        _V_PREFIX_URLS = {
+            "https://github.com/eProsima/foonathan_memory_vendor",
+            "https://github.com/eclipse-iceoryx/iceoryx",
+        }
+        import yaml as _yaml
+        with open(repos_path, encoding="utf-8") as fh:
+            repos_data = _yaml.safe_load(fh.read())
+        for entry in repos_data.get("repositories", {}).values():
+            url = entry.get("url", "").rstrip("/").removesuffix(".git")
+            ver = entry.get("version", "")
+            if url in _V_PREFIX_URLS and ver and not ver.startswith("v"):
+                entry["version"] = f"v{ver}"
+        with open(repos_path, "w", encoding="utf-8") as fh:
+            _yaml.dump(repos_data, fh, default_flow_style=False)
+
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
             rmdir(self, src_dir)
         mkdir(self, src_dir)
-
-        # Bootstrap a minimal PyEnv for `vcs`; the main PyEnv in generate()
-        # runs too late. setuptools<80 is pinned because vcstool 0.3.0 still
-        # imports pkg_resources (removed in setuptools 80).
-        boot_folder = os.path.join(self.source_folder, ".bootstrap")
-        boot = PyEnv(self, folder=boot_folder, name="vcs")
-        boot.install(["setuptools<80", "vcstool"])
         vcs_exe = os.path.join(boot.bin_path, "vcs")
-        self.run(f'"{vcs_exe}" import --input "{repos}" src',
+        self.run(f'"{vcs_exe}" import --input "{repos_path}" src',
                  cwd=self.source_folder)
-
-        # ros2/variants tarball into src/ros2/variants/ so colcon resolves
-        # --packages-up-to {ros_core,ros_base,desktop,desktop_full}.
-        get(self, **sources_data["variants"],
-            destination=os.path.join(src_dir, "ros2", "variants"),
-            strip_root=True)
 
         apply_conandata_patches(self)
 
@@ -468,7 +485,7 @@ class Ros2KiltedConan(ConanFile):
         # `elseif (APPLE AND NOT APPLE_IOS)` so it's dead code on Linux/Windows.
         copy(self, "ogre-1.12.10-fix-macos-sysroot.patch",
              src=os.path.join(self.export_sources_folder, "patches"),
-             dst=os.path.join(self.source_folder, "src", "ros2", "rviz",
+             dst=os.path.join(self.source_folder, "src", "rviz",
                               "rviz_ogre_vendor", "patches"))
 
     def build(self):

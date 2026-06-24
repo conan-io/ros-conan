@@ -22,10 +22,25 @@ jobs:
         include:
           - runner: windows-2022
             conan_home: C:/.c2
+            variant: core
           - runner: macos-latest
             conan_home: /tmp/conan-ci
+            variant: core
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
+            variant: core
+          - runner: ubuntu-latest
+            conan_home: /tmp/conan-ci
+            variant: desktop
+            run_examples: false
+          - runner: windows-2022
+            conan_home: C:/.c2
+            variant: desktop
+            run_examples: false
+          - runner: macos-latest
+            conan_home: /tmp/conan-ci
+            variant: desktop
+            run_examples: false
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -79,7 +94,7 @@ jobs:
       - name: Install latest Conan
         run: |
           python -m pip install --upgrade pip
-          pip install conan
+          pip install conan "numpy<2"
           conan --version
 
       - name: Detect Conan profile
@@ -108,7 +123,7 @@ jobs:
           conan install --requires=ros-kilted/0.1.0
           --build=missing
           --profile:all=profiles/ros
-          -o ros-kilted/*:variant=core
+          -o ros-kilted/*:variant=${{ matrix.variant }}
           --format=json --out-file=install_graph.json
 
       # Uploads every binary that built from source (binary=Build)
@@ -126,9 +141,10 @@ jobs:
         run: >
           conan test recipes/ros-kilted/all/test_package ros-kilted/0.1.0
           --profile:all=profiles/ros
-          -o ros-kilted/*:variant=core
+          -o ros-kilted/*:variant=${{ matrix.variant }}
 
       - name: Find and run examples
+        if: matrix.run_examples != false
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}

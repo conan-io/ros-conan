@@ -41,7 +41,7 @@ class PythonOrocosKdlConan(ConanFile):
     def generate(self):
         CMakeDeps(self).generate()
         tc = CMakeToolchain(self)
-        pyenv = PyEnv(self)
+        pyenv = PyEnv(self, py_version=str(self.options.python_version))
         pyenv.generate()
         tc.cache_variables["Python3_EXECUTABLE"] = pyenv.env_exe
         # Embed RPATH of linked deps (orocos_kdl) into the installed .so so

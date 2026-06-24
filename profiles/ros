@@ -5,13 +5,9 @@ compiler.cppstd=17
 
 [options]
 ros-kilted/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
-python_orocos_kdl/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
-{% if platform.system() == "Windows" %}
-opencv/*:with_ffmpeg=False
-{% endif %}
 
 [tool_requires]
-*: cmake/3.29.3
+cmake/3.29.3
 
 {% if platform.system() == "Linux" %}
 [conf]
