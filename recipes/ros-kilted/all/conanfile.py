@@ -448,7 +448,6 @@ class Ros2KiltedConan(ConanFile):
             self.run(
                 f'"{rig_exe}" desktop_full --rosdistro kilted --deps --format repos',
                 stdout=fh, cwd=self.source_folder)
-
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
             rmdir(self, src_dir)

@@ -4,7 +4,7 @@
    add_dependencies(${_target_name}
      ${rosidl_generate_interfaces_TARGET}__${_typesupport_impl}
    )
- 
+
 +  if(WIN32 AND MSVC)
 +    # ros-kilted: MSVC py _pyobj dir for /Fo - long VS IntDir under Conan cache hits MAX_PATH
 +    # Apply after all target_link_libraries so INTERFACE flags (e.g. introspection) cannot
