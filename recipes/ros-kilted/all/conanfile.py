@@ -4,6 +4,7 @@ import pathlib
 
 from conan import ConanFile
 from conan.errors import ConanException
+from conan.tools.build import check_min_cppstd
 from conan.tools.cmake import CMakeDeps, CMakeToolchain
 from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import (
@@ -17,7 +18,6 @@ from conan.tools.files import (
 )
 from conan.tools.microsoft import VCVars
 from conan.tools.system import PyEnv
-from conan.tools.system.package_manager import Apt
 
 PIP_BUILD_TOOLS = (
     # --- colcon ---
@@ -148,6 +148,9 @@ class Ros2KiltedConan(ConanFile):
         "desktop_full": "desktop_full",
     }
 
+    def validate(self):
+        check_min_cppstd(self, 17)
+
     def configure(self):
         # PCL's io module links Boost::iostreams. If boost gets resolved as
         # header-only, CMakeDeps does not generate that imported target and
@@ -158,6 +161,8 @@ class Ros2KiltedConan(ConanFile):
             # Boost::python<ver>; build Boost.Python so CMakeDeps generates that target.
             self.options["boost/*"].without_python = False
             self.options["boost/*"].python_version = str(self.options.python_version)
+            if self.settings.os == "Windows":
+                self.options["opencv/*"].with_ffmpeg = False
         if str(self.options.variant) in ("base", "desktop", "desktop_full"):
             self.options["python_orocos_kdl/*"].python_version = str(self.options.python_version)
 
@@ -256,20 +261,6 @@ class Ros2KiltedConan(ConanFile):
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
-
-    def system_requirements(self):
-        # iceoryx release_2.0 hard-links -lacl; see iceoryx_hoofs CMakeLists.
-        # No ConanCenter recipe wraps libacl, so we install it directly via apt
-        # on Linux (no-op elsewhere - macOS/Windows use stub ACL headers shipped
-        # with iceoryx). Every other Linux build dep (X11/GL/GLU/Xaw/Xrandr/Xt
-        # for rviz_ogre_vendor) is covered by Conan: xorg/system + opengl/system
-        # come in transitively via qt+opencv, and glu/system is required
-        # directly in requirements() above for the desktop variants. Their own
-        # system_requirements() runs the corresponding apt installs, with
-        # cross-distro mapping built in.
-        if self.settings.os != "Linux":
-            return
-        Apt(self).install(["libacl1-dev"], update=True, check=True)
 
     def generate(self):
         pyenv = PyEnv(self, py_version=str(self.options.python_version))
