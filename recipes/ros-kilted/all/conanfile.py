@@ -548,10 +548,16 @@ class Ros2KiltedConan(ConanFile):
             # style and rosidl_* packages plant `#!python3` text files
             # there (data_files); CreateProcess rejects them with WinError
             # 193 because they are not PE images. Replace each one with a
-            # cli-64 launcher pair (`<name>.exe` + `<name>-script.py`)
-            # using distlib's arch-keyed `t<arch>.exe` stub - same simple-
-            # launcher format as setuptools' cli-64.exe: the .exe parses
-            # the sibling script's shebang at runtime to find Python. Any
+            # simple-launcher pair (`<name>.exe` + `<name>-script.py`)
+            # using setuptools' arch-keyed `cli-<arch>.exe` stub - the
+            # exact format setuptools/colcon already emits for entry_points
+            # in the same directory, so all wrappers in lib/<pkg>/ are
+            # byte-identical launchers: the .exe parses the sibling
+            # `<name>-script.py` shebang at runtime to find Python.
+            # (distlib's `t<arch>.exe` is a *different* launcher format -
+            # it expects an appended ZIP archive built by `ScriptMaker`,
+            # not a sibling -script.py - and bare-copying it yields a
+            # "Unable to find an appended archive" runtime error.) Any
             # pre-existing `<name>-script.py` (entry_points pair routed
             # into lib/<pkg>/ by colcon-core >=0.21 honouring setup.cfg's
             # `install_scripts=$base/lib/<pkg>`, see PR
@@ -559,15 +565,15 @@ class Ros2KiltedConan(ConanFile):
             # relocated pyenv interpreter since setuptools embedded the
             # build-time venv path there.
             launcher_src = os.path.join(
-                pyenv.env_dir, "Lib", "site-packages", "distlib",
-                {"x86_64": "t64.exe",
-                 "x86": "t32.exe",
-                 "armv8": "t64-arm.exe"}.get(
-                    str(self.info.settings.arch), "t64.exe"))
+                pyenv.env_dir, "Lib", "site-packages", "setuptools",
+                {"x86_64": "cli-64.exe",
+                 "x86": "cli-32.exe",
+                 "armv8": "cli-arm64.exe"}.get(
+                    str(self.info.settings.arch), "cli-64.exe"))
             if not os.path.isfile(launcher_src):
                 raise ConanException(
-                    f"distlib launcher binary missing at {launcher_src}; "
-                    "ensure 'distlib' is in PIP_BUILD_TOOLS.")
+                    f"setuptools launcher binary missing at {launcher_src}; "
+                    "expected setuptools to be installed in the pyenv.")
 
             def _strip_shebang(text):
                 head, sep, rest = text.partition("\n")
