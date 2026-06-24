@@ -146,6 +146,8 @@ class Ros2KiltedConan(ConanFile):
 
     def configure(self):
         if str(self.options.variant) in ("desktop", "desktop_full"):
+            # pcl_io links Boost::iostreams, requires a compiled boost
+            self.options["boost/*"].header_only = False
             if self.settings.os == "Windows":
                 self.options["opencv/*"].with_ffmpeg = False
         if str(self.options.variant) in ("base", "desktop", "desktop_full"):
