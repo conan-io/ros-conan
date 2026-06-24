@@ -111,16 +111,16 @@ jobs:
           conan remote login conan-ros
 
       - name: Show ros-kilted revisions in Artifactory
-        run: conan list "ros-kilted/0.1.0#*:*" -r=conan-ros -f=compact
+        run: conan list "ros-kilted/2026.06.17#*:*" -r=conan-ros -f=compact
 
       - name: Export ros-kilted recipe
         working-directory: ${{ github.workspace }}
-        run: conan export recipes/ros-kilted/all --version=0.1.0
+        run: conan export recipes/ros-kilted/all --version=2026.06.17
 
       - name: Install ros-kilted (build missing from source)
         working-directory: ${{ github.workspace }}
         run: >
-          conan install --requires=ros-kilted/0.1.0
+          conan install --requires=ros-kilted/2026.06.17
           --build=missing
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
@@ -139,7 +139,7 @@ jobs:
       - name: Run ros-kilted test_package
         working-directory: ${{ github.workspace }}
         run: >
-          conan test recipes/ros-kilted/all/test_package ros-kilted/0.1.0
+          conan test recipes/ros-kilted/all/test_package ros-kilted/2026.06.17
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
 

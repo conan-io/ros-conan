@@ -3,13 +3,13 @@
 # To bump: update URL + sha256 with a newer tag from github.com/ros/rosdistro/tags
 # (<distro>/<YYYY-MM-DD>), then re-test that patches still apply.
 sources:
-  "0.1.0":
+  "2026.06.17":
     rosdistro:
       url: https://github.com/ros/rosdistro/archive/refs/tags/kilted/2026-06-17.tar.gz
       sha256: fe78f42183d7e716e2a16bc292e9e2f10ca53bd0e3557d76946cc6096eab0a5d
 
 patches:
-  "0.1.0":
+  "2026.06.17":
     - patch_file: patches/0001-google-benchmark-vendor-conan-shared-benchmark.patch
       patch_description: google_benchmark_vendor - shared lib check on benchmark::benchmark (Conan)
     - patch_file: patches/0002-rosidl-generator-py-msvc-short-object-dir.patch

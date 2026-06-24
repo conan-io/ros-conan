@@ -98,7 +98,7 @@ PIP_BUILD_TOOLS = (
 
 class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
-    version = "0.1.0"
+    version = "2026.06.17"
     provides = "ros"  # To avoid name conflicts with other ros packages: ros-rolling, ros-humble, etc.
     exports_sources = "conandata.yml", "patches/*"
     # Shared stack + executables: keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH.

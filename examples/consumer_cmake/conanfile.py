@@ -11,7 +11,7 @@ class ConsumerConan(ConanFile):
         cmake_layout(self)
 
     def requirements(self):
-        self.requires("ros-kilted/0.1.0")
+        self.requires("ros-kilted/2026.06.17")
 
     def build(self):
         cmake = CMake(self)

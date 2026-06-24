@@ -13,7 +13,7 @@ are built side-by-side:
 
 ## How it is wired
 
-[`conanfile.txt`](conanfile.txt) requires `ros-kilted/0.1.0` and pulls in the generators
+[`conanfile.txt`](conanfile.txt) requires `ros-kilted/2026.06.17` and pulls in the generators
 that make `colcon` discover ROS 2:
 
 | Generator         | Role                                                                                              |
