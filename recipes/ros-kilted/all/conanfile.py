@@ -438,32 +438,16 @@ class Ros2KiltedConan(ConanFile):
         boot.install(["setuptools<80", "vcstool", "rosinstall_generator"])
 
         # desktop_full is the superset; --packages-up-to in build() filters per variant.
+        # No --upstream: bloom release branches (release/kilted/X.Y.Z), not git tags.
+        # Avoids v-prefix mismatches (iceoryx, foonathan_memory_vendor).
         os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(
             rosdistro_dir, "index-v4.yaml").as_uri()
         repos_path = os.path.join(self.source_folder, "sources.repos")
         rig_exe = os.path.join(boot.bin_path, "rosinstall_generator")
         with open(repos_path, "w", encoding="utf-8") as fh:
             self.run(
-                f'"{rig_exe}" desktop_full --rosdistro kilted --deps --upstream --format repos',
+                f'"{rig_exe}" desktop_full --rosdistro kilted --deps --format repos',
                 stdout=fh, cwd=self.source_folder)
-
-        # rosinstall_generator --upstream uses the release version number as the
-        # git tag, but a handful of non-ROS upstreams tag with a 'v' prefix.
-        # Add repos here when vcs reports "fatal: invalid reference: X.Y.Z".
-        _V_PREFIX_URLS = {
-            "https://github.com/eProsima/foonathan_memory_vendor",
-            "https://github.com/eclipse-iceoryx/iceoryx",
-        }
-        import yaml as _yaml
-        with open(repos_path, encoding="utf-8") as fh:
-            repos_data = _yaml.safe_load(fh.read())
-        for entry in repos_data.get("repositories", {}).values():
-            url = entry.get("url", "").rstrip("/").removesuffix(".git")
-            ver = entry.get("version", "")
-            if url in _V_PREFIX_URLS and ver and not ver.startswith("v"):
-                entry["version"] = f"v{ver}"
-        with open(repos_path, "w", encoding="utf-8") as fh:
-            _yaml.dump(repos_data, fh, default_flow_style=False)
 
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
