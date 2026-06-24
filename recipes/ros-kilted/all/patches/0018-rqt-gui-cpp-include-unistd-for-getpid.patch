@@ -1,9 +1,9 @@
 --- src/rqt/rqt_gui_cpp/src/rqt_gui_cpp/nodelet_plugin_provider.cpp
 +++ src/rqt/rqt_gui_cpp/src/rqt_gui_cpp/nodelet_plugin_provider.cpp
 @@ -32,6 +32,7 @@
- 
+
  #include "nodelet_plugin_provider.hpp"
- 
+
 +#include <unistd.h>
  #include <memory>
  #include <stdexcept>
