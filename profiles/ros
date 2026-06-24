@@ -6,6 +6,9 @@ compiler.cppstd=17
 [options]
 ros-kilted/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
 
+[tool_requires]
+cmake/3.29.3
+
 {% if platform.system() == "Linux" %}
 [conf]
 tools.system.package_manager:mode=install
