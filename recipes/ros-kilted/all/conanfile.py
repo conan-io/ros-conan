@@ -145,15 +145,7 @@ class Ros2KiltedConan(ConanFile):
         check_min_cppstd(self, 17)
 
     def configure(self):
-        # PCL's io module links Boost::iostreams. If boost gets resolved as
-        # header-only, CMakeDeps does not generate that imported target and
-        # desktop+ variants fail.
         if str(self.options.variant) in ("desktop", "desktop_full"):
-            self.options["boost/*"].header_only = False
-            # cv_bridge (vision_opencv) is a transitive dep of desktop and links
-            # Boost::python<ver>; build Boost.Python so CMakeDeps generates that target.
-            self.options["boost/*"].without_python = False
-            self.options["boost/*"].python_version = str(self.options.python_version)
             if self.settings.os == "Windows":
                 self.options["opencv/*"].with_ffmpeg = False
         if str(self.options.variant) in ("base", "desktop", "desktop_full"):
@@ -349,6 +341,9 @@ class Ros2KiltedConan(ConanFile):
             ])
         tc.cache_variables["BUILD_TESTING"] = False
         tc.variables["BUILD_TESTING"] = False
+        # Disable cv_bridge python to avoid Boost::python require due to numpy
+        tc.cache_variables["CV_BRIDGE_DISABLE_PYTHON"] = True
+        tc.variables["CV_BRIDGE_DISABLE_PYTHON"] = True
         tc.cache_variables["Python3_ROOT_DIR"] = pyenv.env_dir
         tc.cache_variables["Python3_EXECUTABLE"] = pyenv.env_exe
         tc.cache_variables["Python_ROOT_DIR"] = pyenv.env_dir
