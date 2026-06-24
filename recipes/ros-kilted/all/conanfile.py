@@ -341,29 +341,17 @@ class Ros2KiltedConan(ConanFile):
                 "-Wno-error=deprecated-literal-operator",  # asio operator"" _buf
                 "-Wno-error=nonnull",                      # FastDDS TypeObjectRegistry.cpp
             ])
-        tc.cache_variables["BUILD_TESTING"] = False
         tc.variables["BUILD_TESTING"] = False
         # Disable cv_bridge python to avoid Boost::python require due to numpy
-        tc.cache_variables["CV_BRIDGE_DISABLE_PYTHON"] = True
         tc.variables["CV_BRIDGE_DISABLE_PYTHON"] = True
-        tc.cache_variables["Python3_ROOT_DIR"] = pyenv.env_dir
-        tc.cache_variables["Python3_EXECUTABLE"] = pyenv.env_exe
-        tc.cache_variables["Python_ROOT_DIR"] = pyenv.env_dir
-        tc.cache_variables["Python_EXECUTABLE"] = pyenv.env_exe
-        tc.cache_variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
-        # Zenoh RMW is disabled: its rust/cargo pipeline is flaky on macOS 26.
-        # Re-enable by: uncomment zenoh-c/zenoh-cpp requires, USE_SYSTEM_ZENOH,
-        # and the matching --packages-ignore entries in build().
-        # tc.cache_variables["USE_SYSTEM_ZENOH"] = True
-        # MSVC path limit (~260) vs deep Conan build dirs + long rosidl names.
-
-        # Duplicated into tc.variables because colcon invokes cmake directly
-        # (no CMakePresets), so it only sees what lands in conan_toolchain.cmake.
         tc.variables["Python3_ROOT_DIR"] = py_root
         tc.variables["Python3_EXECUTABLE"] = py_exe
         tc.variables["Python_ROOT_DIR"] = py_root
         tc.variables["Python_EXECUTABLE"] = py_exe
         tc.variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
+        # Zenoh RMW is disabled: its rust/cargo pipeline is flaky on macOS 26.
+        # Re-enable by: uncomment zenoh-c/zenoh-cpp requires, USE_SYSTEM_ZENOH,
+        # and the matching --packages-ignore entries in build().
         # tc.variables["USE_SYSTEM_ZENOH"] = True
         tc.variables["CMAKE_BUILD_TYPE"] = str(self.settings.build_type)
         if self.settings.os == "Linux":
