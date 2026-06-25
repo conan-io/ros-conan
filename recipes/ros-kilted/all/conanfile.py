@@ -106,7 +106,7 @@ PIP_BUILD_TOOLS = (
 
 class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
-    version = "0.1.0"
+    version = "2026.06.17"
     provides = "ros"  # To avoid name conflicts with other ros packages: ros-rolling, ros-humble, etc.
     exports_sources = "conandata.yml", "patches/*"
     # Shared stack + executables: keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH.
@@ -153,15 +153,9 @@ class Ros2KiltedConan(ConanFile):
         check_min_cppstd(self, 17)
 
     def configure(self):
-        # PCL's io module links Boost::iostreams. If boost gets resolved as
-        # header-only, CMakeDeps does not generate that imported target and
-        # desktop+ variants fail.
         if str(self.options.variant) in ("desktop", "desktop_full"):
+            # pcl_io links Boost::iostreams, requires a compiled boost
             self.options["boost/*"].header_only = False
-            # cv_bridge (vision_opencv) is a transitive dep of desktop and links
-            # Boost::python<ver>; build Boost.Python so CMakeDeps generates that target.
-            self.options["boost/*"].without_python = False
-            self.options["boost/*"].python_version = str(self.options.python_version)
             if self.settings.os == "Windows":
                 self.options["opencv/*"].with_ffmpeg = False
         if str(self.options.variant) in ("base", "desktop", "desktop_full"):
@@ -355,26 +349,17 @@ class Ros2KiltedConan(ConanFile):
                 "-Wno-error=deprecated-literal-operator",  # asio operator"" _buf
                 "-Wno-error=nonnull",                      # FastDDS TypeObjectRegistry.cpp
             ])
-        tc.cache_variables["BUILD_TESTING"] = False
         tc.variables["BUILD_TESTING"] = False
-        tc.cache_variables["Python3_ROOT_DIR"] = pyenv.env_dir
-        tc.cache_variables["Python3_EXECUTABLE"] = pyenv.env_exe
-        tc.cache_variables["Python_ROOT_DIR"] = pyenv.env_dir
-        tc.cache_variables["Python_EXECUTABLE"] = pyenv.env_exe
-        tc.cache_variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
-        # Zenoh RMW is disabled: its rust/cargo pipeline is flaky on macOS 26.
-        # Re-enable by: uncomment zenoh-c/zenoh-cpp requires, USE_SYSTEM_ZENOH,
-        # and the matching --packages-ignore entries in build().
-        # tc.cache_variables["USE_SYSTEM_ZENOH"] = True
-        # MSVC path limit (~260) vs deep Conan build dirs + long rosidl names.
-
-        # Duplicated into tc.variables because colcon invokes cmake directly
-        # (no CMakePresets), so it only sees what lands in conan_toolchain.cmake.
+        # Disable cv_bridge python to avoid Boost::python require due to numpy
+        tc.variables["CV_BRIDGE_DISABLE_PYTHON"] = True
         tc.variables["Python3_ROOT_DIR"] = py_root
         tc.variables["Python3_EXECUTABLE"] = py_exe
         tc.variables["Python_ROOT_DIR"] = py_root
         tc.variables["Python_EXECUTABLE"] = py_exe
         tc.variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
+        # Zenoh RMW is disabled: its rust/cargo pipeline is flaky on macOS 26.
+        # Re-enable by: uncomment zenoh-c/zenoh-cpp requires, USE_SYSTEM_ZENOH,
+        # and the matching --packages-ignore entries in build().
         # tc.variables["USE_SYSTEM_ZENOH"] = True
         tc.variables["CMAKE_BUILD_TYPE"] = str(self.settings.build_type)
         if self.settings.os == "Linux":
@@ -446,33 +431,16 @@ class Ros2KiltedConan(ConanFile):
         boot.install(["setuptools<80", "vcstool", "rosinstall_generator"])
 
         # desktop_full is the superset; --packages-up-to in build() filters per variant.
+        # No --upstream: bloom release branches (release/kilted/X.Y.Z), not git tags.
+        # Avoids v-prefix mismatches (iceoryx, foonathan_memory_vendor).
         os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(
             rosdistro_dir, "index-v4.yaml").as_uri()
         repos_path = os.path.join(self.source_folder, "sources.repos")
         rig_exe = os.path.join(boot.bin_path, "rosinstall_generator")
         with open(repos_path, "w", encoding="utf-8") as fh:
             self.run(
-                f'"{rig_exe}" desktop_full --rosdistro kilted --deps --upstream --format repos',
+                f'"{rig_exe}" desktop_full --rosdistro kilted --deps --format repos',
                 stdout=fh, cwd=self.source_folder)
-
-        # rosinstall_generator --upstream uses the release version number as the
-        # git tag, but a handful of non-ROS upstreams tag with a 'v' prefix.
-        # Add repos here when vcs reports "fatal: invalid reference: X.Y.Z".
-        _V_PREFIX_URLS = {
-            "https://github.com/eProsima/foonathan_memory_vendor",
-            "https://github.com/eclipse-iceoryx/iceoryx",
-        }
-        import yaml as _yaml
-        with open(repos_path, encoding="utf-8") as fh:
-            repos_data = _yaml.safe_load(fh.read())
-        for entry in repos_data.get("repositories", {}).values():
-            url = entry.get("url", "").rstrip("/").removesuffix(".git")
-            ver = entry.get("version", "")
-            if url in _V_PREFIX_URLS and ver and not ver.startswith("v"):
-                entry["version"] = f"v{ver}"
-        with open(repos_path, "w", encoding="utf-8") as fh:
-            _yaml.dump(repos_data, fh, default_flow_style=False)
-
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
             rmdir(self, src_dir)

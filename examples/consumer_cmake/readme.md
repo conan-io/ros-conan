@@ -20,7 +20,7 @@ See [`src/main.cpp`](src/main.cpp).
 
 ## How it is wired
 
-- [`conanfile.py`](conanfile.py) declares a single requirement on `ros-kilted/0.1.0` and
+- [`conanfile.py`](conanfile.py) declares a single requirement on `ros-kilted/2026.06.17` and
   uses the `CMakeDeps` + `CMakeToolchain` generators with the standard `cmake_layout()`.
 - [`CMakeLists.txt`](CMakeLists.txt) uses plain `find_package(rclcpp REQUIRED)`. The ROS 2
   CMake configs are provided by Conan, not by sourcing a `setup.{bash,bat,ps1}` script.
