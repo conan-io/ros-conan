@@ -143,10 +143,6 @@ jobs:
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
 
-      # Opt-in: only matrix legs that set run_examples: true run the examples step.
-      # Avoid `!= false` here: GitHub Actions coerces both `null` (missing key) and
-      # `false` to `0`, so `null != false` evaluates to `false` and the step would
-      # never fire — even on the entries that previously had no run_examples key.
       - name: Find and run examples
         if: matrix.run_examples
         shell: bash
