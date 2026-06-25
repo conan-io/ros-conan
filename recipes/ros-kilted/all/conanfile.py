@@ -269,27 +269,12 @@ class Ros2KiltedConan(ConanFile):
         # Colcon must not descend into site-packages under this venv.
         save(self, os.path.join(pyenv.env_dir, "COLCON_IGNORE"), "")
 
-        # colcon --merge-install drops ament_cmake_python packages
-        # (rosidl_adapter, rosidl_cli, ament_index_python, ...) into
-        # install/lib/python*/site-packages. Downstream packages' CMake then
-        # invokes `${Python3_EXECUTABLE} -m rosidl_adapter ...` while
-        # configuring (e.g. builtin_interfaces). The PyEnv venv interpreter
-        # launched via CMake's execute_process does not see those paths
-        # (colcon's PYTHONPATH plumbing is per-shell-hook and doesn't reach
-        # the venv python invoked through cmake), so the import fails with
-        # `No module named rosidl_adapter`. Pre-installing each module via
-        # pip is not viable: most rosidl_* packages have no setup.py /
-        # pyproject.toml (they rely on ament_cmake_python). Two complementary
-        # fixes that both have to land:
-        #   1. Drop a .pth file inside the venv's site-packages whose
-        #      `import ...` line site.py re-evaluates on every interpreter
-        #      startup; the glob pulls in whatever colcon has installed under
-        #      install/lib/python*/site-packages so far. Belt.
-        #   2. Prepend the same paths to PYTHONPATH via VirtualBuildEnv (see
-        #      generate() below) so even a python invocation that somehow
-        #      bypasses site.py still resolves the modules. Suspenders.
-        # The Python version (3.12) is detected from the venv's own lib
-        # layout - PyEnv just created it, so the dir exists by now.
+        # colcon drops rosidl_adapter & friends into install/lib/python*/site-packages;
+        # the venv python invoked by CMake's execute_process doesn't see those paths
+        # (colcon's PYTHONPATH plumbing is shell-hook only). Two complementary fixes:
+        # 1. A .pth file in venv site-packages that globs the colcon install tree (belt).
+        # 2. PYTHONPATH prepended via VirtualBuildEnv below (suspenders).
+        # The Python version dir is detected from the venv's own lib layout.
         venv_python_dirs = [
             d for d in os.listdir(os.path.join(pyenv.env_dir, "lib"))
             if d.startswith("python")
@@ -300,13 +285,13 @@ class Ros2KiltedConan(ConanFile):
             f"detected venv python dirs={venv_python_dirs}")
 
         install_root = os.path.join(self.build_folder, "install")
-        self._install_site_packages_paths = [
+        install_site_packages = [
             os.path.join(install_root, "lib", d, "site-packages")
             for d in venv_python_dirs
         ] + [os.path.join(install_root, "Lib", "site-packages")]
         self.output.info(
             f"[ros-kilted] colcon install site-packages PYTHONPATH entries: "
-            f"{self._install_site_packages_paths}")
+            f"{install_site_packages}")
 
         pth_line = (
             "import sys, glob, os; "
@@ -369,24 +354,11 @@ class Ros2KiltedConan(ConanFile):
         VCVars(self).generate()
         vbe = VirtualBuildEnv(self)
         vbe.environment().define("ROS_DISTRO", "kilted")
-        # Suspenders for the .pth file written above: prepend the future
-        # colcon merged-install site-packages to PYTHONPATH so any python
-        # process colcon's per-package cmake spawns can import rosidl_adapter
-        # & friends even if site.py .pth processing is somehow skipped. Paths
-        # don't exist yet at generate() time, but PYTHONPATH entries are
-        # resolved lazily at Python startup, so future colcon installs into
-        # these locations become visible automatically.
-        for sp in getattr(self, "_install_site_packages_paths", []):
+        # Suspenders for the .pth belt above: paths don't exist yet but PYTHONPATH is resolved lazily.
+        for sp in install_site_packages:
             vbe.environment().prepend_path("PYTHONPATH", sp)
-        # Same trick for the shared-library loader: some packages build a
-        # tool (e.g. cyclonedds' idlc, which links libiceoryx_posh) and then
-        # invoke it from a CMake add_custom_command in the SAME colcon run.
-        # The tool's RUNPATH is set by colcon for the final install location,
-        # but in the build tree the binary is exercised before being copied,
-        # so dlopen() has to fall back to LD_LIBRARY_PATH / DYLD_LIBRARY_PATH
-        # / PATH. Point those at the future install/lib (or install/bin on
-        # Windows for DLL search order); resolution is lazy so the dirs being
-        # empty/missing at generate() time is fine.
+        # Same trick for dlopen: tools built and invoked in the same colcon run (e.g. cyclonedds idlc)
+        # need install/lib on LD_LIBRARY_PATH before their RUNPATH is in effect.
         install_lib = os.path.join(self.build_folder, "install", "lib")
         install_bin = os.path.join(self.build_folder, "install", "bin")
         vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
@@ -541,40 +513,42 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
-        self.buildenv_info.prepend_path("AMENT_PREFIX_PATH", p)
-        self.buildenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
-        for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
-            self.buildenv_info.prepend_path("PYTHONPATH", site)
-        self.buildenv_info.prepend_path("CMAKE_PREFIX_PATH", p)
-        self.buildenv_info.define("ROS_DISTRO", "kilted")
-        self.buildenv_info.define("ROS_VERSION", "2")
-        self.buildenv_info.define("ROS_PYTHON_VERSION", "3")
-        self.buildenv_info.prepend_path("COLCON_PREFIX_PATH", p)
+
+        python_sites = [os.path.join(p, "Lib", "site-packages")] + sorted(
+            glob.glob(os.path.join(p, "lib", "python*", "site-packages")))
+        for env in (self.buildenv_info, self.runenv_info):
+            env.prepend_path("AMENT_PREFIX_PATH", p)
+            for site in python_sites:
+                env.prepend_path("PYTHONPATH", site)
+            env.prepend_path("CMAKE_PREFIX_PATH", p)
+            env.define("ROS_DISTRO", "kilted")
+            env.define("ROS_VERSION", "2")
+            env.define("ROS_PYTHON_VERSION", "3")
+            env.prepend_path("COLCON_PREFIX_PATH", p)
 
         # Run PATH: rely on cpp_info.bindirs + VirtualRunEnv (see package_type); avoids duplicating PATH here.
-        self.runenv_info.prepend_path("AMENT_PREFIX_PATH", p)
-        self.runenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
-        for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
-            self.runenv_info.prepend_path("PYTHONPATH", site)
-        self.runenv_info.prepend_path("CMAKE_PREFIX_PATH", p)
-        self.runenv_info.define("ROS_DISTRO", "kilted")
-        self.runenv_info.define("ROS_VERSION", "2")
-        self.runenv_info.define("ROS_PYTHON_VERSION", "3")
-        self.runenv_info.prepend_path("COLCON_PREFIX_PATH", p)
 
-        # ament_cmake_vendor_package isolates each vendor's libs under opt/<pkg>/lib.
-        # ROS's setup.sh sources per-vendor hooks that prepend those paths to
-        # DYLD_/LD_LIBRARY_PATH; consumers running through `conan run` do not source
-        # setup.sh, so dlopen of e.g. librviz_default_plugins (-> libgz-math) fails.
-        # Replicate the hook output directly in runenv so plugins resolve out of the box.
+        # Vendors install merged relocatable trees under <prefix>/opt/<pkg>/{include,lib,bin}.
+        # ROS's setup.sh sources per-vendor hooks prepending opt/<pkg>/lib to DYLD_/LD_LIBRARY_PATH;
+        # replicate that here so dlopen works without sourcing setup.sh.
         opt_dir = os.path.join(p, "opt")
         if os.path.isdir(opt_dir):
-            for vendor in sorted(os.listdir(opt_dir)):
-                for libdir in ("lib", "lib64"):
-                    vlib = os.path.join(opt_dir, vendor, libdir)
+            for name in sorted(os.listdir(opt_dir)):
+                vendor = os.path.join(opt_dir, name)
+                if not os.path.isdir(vendor):
+                    continue
+                inc = os.path.join(vendor, "include")
+                if os.path.isdir(inc):
+                    self.cpp_info.includedirs.append(inc)
+                for libname in ("lib", "lib64"):
+                    vlib = os.path.join(vendor, libname)
                     if os.path.isdir(vlib):
                         self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", vlib)
                         self.runenv_info.prepend_path("LD_LIBRARY_PATH", vlib)
+                        self.cpp_info.libdirs.append(vlib)
+                bindir = os.path.join(vendor, "bin")
+                if os.path.isdir(bindir):
+                    self.cpp_info.bindirs.append(bindir)
         # ConanCenter qt exposes plugins under <prefix>/plugins but does not set
         # QT_PLUGIN_PATH; without it rviz2/rqt fail (e.g. "Could not find the Qt
         # platform plugin \"windows\"" on MSVC builds).
@@ -583,30 +557,11 @@ class Ros2KiltedConan(ConanFile):
                 qt_dep = self.dependencies["qt"]
             except KeyError:
                 qt_dep = None
-            if qt_dep is not None:
+            if qt_dep:
                 qt_plugins = os.path.join(qt_dep.package_folder, "plugins")
                 if os.path.isdir(qt_plugins):
                     self.runenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
                     self.buildenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
-
-        # Vendors (OGRE, Gazebo CMake, mimick, …) install merged relocatable trees under
-        # <prefix>/opt/<pkg>/{include,lib,bin}. Expose them for consumers (CMake, PATH).
-        opt_root = os.path.join(p, "opt")
-        if os.path.isdir(opt_root):
-            for name in sorted(os.listdir(opt_root)):
-                vendor = os.path.join(opt_root, name)
-                if not os.path.isdir(vendor):
-                    continue
-                inc = os.path.join(vendor, "include")
-                if os.path.isdir(inc):
-                    self.cpp_info.includedirs.append(inc)
-                for libname in ("lib", "lib64"):
-                    libdir = os.path.join(vendor, libname)
-                    if os.path.isdir(libdir):
-                        self.cpp_info.libdirs.append(libdir)
-                bindir = os.path.join(vendor, "bin")
-                if os.path.isdir(bindir):
-                    self.cpp_info.bindirs.append(bindir)
 
         pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
         py_exe = pyenv.env_exe
@@ -615,15 +570,11 @@ class Ros2KiltedConan(ConanFile):
         self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
         self.buildenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
 
-        # Consumers often use local_setup.bat; document path.
         self.conf_info.define_path("user.ros2:install_prefix", p)
-        setup_script_path = os.path.join(p, "setup")
-        setup_script_path_sh = setup_script_path + ".sh"
-        setup_script_path_bat = setup_script_path + ".bat"
-        setup_script_path_ps1 = setup_script_path + ".ps1"
-        self.output.info(f"[bash] Setup the ROS Kilted environment: 'source {setup_script_path_sh}'")
-        self.output.info(f"[batch] Setup the ROS Kilted environment: 'call {setup_script_path_bat}'")
-        self.output.info(f"[powershell] Setup the ROS Kilted environment: '. {setup_script_path_ps1}'")
-        self.conf_info.define_path("user.ros2:setup_sh", setup_script_path_sh)
-        self.conf_info.define_path("user.ros2:setup_bat", setup_script_path_bat)
-        self.conf_info.define_path("user.ros2:setup_ps1", setup_script_path_ps1)
+        setup = os.path.join(p, "setup")
+        self.output.info(f"[bash] Setup the ROS Kilted environment: 'source {setup}.sh'")
+        self.output.info(f"[batch] Setup the ROS Kilted environment: 'call {setup}.bat'")
+        self.output.info(f"[powershell] Setup the ROS Kilted environment: '. {setup}.ps1'")
+        self.conf_info.define_path("user.ros2:setup_sh", f"{setup}.sh")
+        self.conf_info.define_path("user.ros2:setup_bat", f"{setup}.bat")
+        self.conf_info.define_path("user.ros2:setup_ps1", f"{setup}.ps1")
