@@ -3,7 +3,10 @@ import platform
 
 from test.examples_tools import run
 
-run("conan install --profile ../../profiles/ros --build=missing")
+run(
+    "conan install --profile ../../profiles/ros --build=missing "
+    "--format=json --out-file=install_graph.json"
+)
 
 if platform.system() == "Windows":
     run(
