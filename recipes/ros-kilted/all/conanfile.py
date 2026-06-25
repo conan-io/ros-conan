@@ -537,10 +537,14 @@ class Ros2KiltedConan(ConanFile):
         p = self.package_folder
         bin_path = os.path.join(p, "bin")
         scripts_path = os.path.join(p, "Scripts")
+        pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
+        venv_bin_path = pyenv.bin_path
         self.cpp_info.bindirs.append(bin_path)
         self.cpp_info.bindirs.append(scripts_path)
+        self.cpp_info.bindirs.append(venv_bin_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
+        self.buildenv_info.prepend_path("PATH", venv_bin_path)
         self.buildenv_info.prepend_path("AMENT_PREFIX_PATH", p)
         self.buildenv_info.prepend_path("PYTHONPATH", os.path.join(p, "Lib", "site-packages"))
         for site in sorted(glob.glob(os.path.join(p, "lib", "python*", "site-packages"))):
@@ -608,7 +612,6 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
 
-        pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
         py_exe = pyenv.env_exe
         self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
         self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)

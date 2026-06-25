@@ -5,26 +5,6 @@ import sys
 
 from test.examples_tools import run
 
-# Use the same interpreter as this script for pip and for CMake/ament Python
-# scripts. Otherwise on macOS, `python3` on PATH (e.g. Homebrew 3.14) can
-# differ from the `python` that launched CI, so catkin_pkg installs in one
-# site-packages while ament_cmake's find_package(Python3) picks another.
-_pip = [
-    sys.executable,
-    "-m",
-    "pip",
-    "install",
-    "-q",
-    "--upgrade",
-    "pip",
-    "colcon-common-extensions",
-    "catkin_pkg",
-]
-if platform.system() == "Windows":
-    run(subprocess.list2cmdline(_pip))
-else:
-    run(shlex.join(_pip))
-
 run("conan install --profile ../../profiles/ros --build=missing")
 
 if platform.system() == "Windows":
