@@ -149,3 +149,15 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
+.
+      - name: Upload pose_estimation example deps built from source to Artifactory
+        if: always() && matrix.run_examples
+        shell: bash
+        working-directory: ${{ github.workspace }}/examples/pose_estimation
+        run: |
+          conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
+          if python -c "import json,sys; d=json.load(open('upload_pkglist.json')); sys.exit(0 if d.get('Local Cache') else 1)"; then
+            conan upload --list=upload_pkglist.json -r conan-ros -c
+          else
+            echo "Nothing built from source to upload."
+          fi
