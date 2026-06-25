@@ -504,27 +504,12 @@ class Ros2KiltedConan(ConanFile):
             lib_dir = os.path.join(self.package_folder, "Lib")
             shebang = f"#!{pyenv.env_exe}\n"
 
-            # `ros2 run <pkg> <exec>` walks `<prefix>/lib/<pkg>/` and
-            # `subprocess.Popen`s the first basename match. Upstream rqt-
-            # style and rosidl_* packages plant `#!python3` text files
-            # there (data_files); CreateProcess rejects them with WinError
-            # 193 because they are not PE images. Replace each one with a
-            # simple-launcher pair (`<name>.exe` + `<name>-script.py`)
-            # using setuptools' arch-keyed `cli-<arch>.exe` stub - the
-            # exact format setuptools/colcon already emits for entry_points
-            # in the same directory, so all wrappers in lib/<pkg>/ are
-            # byte-identical launchers: the .exe parses the sibling
-            # `<name>-script.py` shebang at runtime to find Python.
-            # (distlib's `t<arch>.exe` is a *different* launcher format -
-            # it expects an appended ZIP archive built by `ScriptMaker`,
-            # not a sibling -script.py - and bare-copying it yields a
-            # "Unable to find an appended archive" runtime error.) Any
-            # pre-existing `<name>-script.py` (entry_points pair routed
-            # into lib/<pkg>/ by colcon-core >=0.21 honouring setup.cfg's
-            # `install_scripts=$base/lib/<pkg>`, see PR
-            # colcon/colcon-core#720) gets its shebang retargeted at the
-            # relocated pyenv interpreter since setuptools embedded the
-            # build-time venv path there.
+            # `ros2 run` Popen's lib/<pkg>/<exec> on Windows; bare data_files
+            # `#!python3` text files trip CreateProcess WinError 193. Wrap
+            # them in setuptools' simple-launcher pair (`<name>.exe` +
+            # `<name>-script.py`) - same format colcon emits for
+            # entry_points. Note: distlib's `t<arch>.exe` is a different
+            # format (appended-ZIP via ScriptMaker) and won't work bare.
             launcher_src = os.path.join(
                 pyenv.env_dir, "Lib", "site-packages", "setuptools",
                 {"x86_64": "cli-64.exe",
