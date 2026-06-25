@@ -24,7 +24,7 @@ jobs:
             conan_home: C:/.c2
             variant: core
             run_examples: true
-          - runner: macos-15
+          - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: core
             run_examples: true
@@ -38,7 +38,7 @@ jobs:
           - runner: windows-2022
             conan_home: C:/.c2
             variant: desktop
-          - runner: macos-15
+          - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: desktop
 
