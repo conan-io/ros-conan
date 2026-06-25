@@ -23,24 +23,24 @@ jobs:
           - runner: windows-2022
             conan_home: C:/.c2
             variant: core
+            run_examples: true
           - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: core
+            run_examples: true
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
             variant: core
+            run_examples: true
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
             variant: desktop
-            run_examples: false
           - runner: windows-2022
             conan_home: C:/.c2
             variant: desktop
-            run_examples: false
           - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: desktop
-            run_examples: false
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -143,8 +143,12 @@ jobs:
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
 
+      # Opt-in: only matrix legs that set run_examples: true run the examples step.
+      # Avoid `!= false` here: GitHub Actions coerces both `null` (missing key) and
+      # `false` to `0`, so `null != false` evaluates to `false` and the step would
+      # never fire — even on the entries that previously had no run_examples key.
       - name: Find and run examples
-        if: matrix.run_examples != false
+        if: matrix.run_examples
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
