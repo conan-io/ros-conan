@@ -27,7 +27,7 @@ Conan recipes for building [ROS 2](https://docs.ros.org/) from source. Pull ROS 
 git clone https://github.com/conan-io/ros-conan.git
 conan remote add ros-conan ./ros-conan --type=local-recipes-index
 
-conan install --requires=ros-kilted/0.1.0 \
+conan install --requires=ros-kilted/2026.06.17 \
     --profile=ros-conan/profiles/ros \
     --build=missing
 ```
@@ -60,11 +60,18 @@ ros2 pkg list
 To build a different variant, pass the variant option with `-o`:
 
 ```bash
-conan install --requires=ros-kilted/0.1.0 \
+conan install --requires=ros-kilted/2026.06.17 \
     --profile=ros-conan/profiles/ros \
     -o ros-kilted/*:variant=desktop \
     --build=missing
 ```
+
+## Versioning
+
+`ros-kilted` uses **calendar versioning** that mirrors the upstream
+[`ros/rosdistro` sync tag](https://github.com/ros/rosdistro/tags) the recipe is
+pinned to. The Conan version `YYYY.MM.DD` maps 1:1 to the rosdistro tag
+`kilted/YYYY-MM-DD`.
 
 ## Recipes
 

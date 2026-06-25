@@ -1,8 +1,8 @@
 [requires]
-ros-kilted/0.1.0
+ros-kilted/2026.06.17
 
 [options]
-ros-kilted/0.1.0:variant=core
+ros-kilted/2026.06.17:variant=core
 
 [generators]
 CMakeToolchain
