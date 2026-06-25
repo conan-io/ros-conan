@@ -617,6 +617,11 @@ class Ros2KiltedConan(ConanFile):
         self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
         self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
         self.buildenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
+        py_root = pyenv.env_dir
+        self.buildenv_info.define_path("Python3_ROOT_DIR", py_root)
+        self.buildenv_info.define_path("Python_ROOT_DIR", py_root)
+        self.runenv_info.define_path("Python3_ROOT_DIR", py_root)
+        self.runenv_info.define_path("Python_ROOT_DIR", py_root)
 
         # Consumers often use local_setup.bat; document path.
         self.conf_info.define_path("user.ros2:install_prefix", p)
