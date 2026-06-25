@@ -101,7 +101,6 @@ jobs:
         run: conan profile detect --force
 
       - name: Add local recipes index
-        working-directory: ${{ github.workspace }}
         run: conan remote add conan-ros-index . --type=local-recipes-index
 
       - name: Add Artifactory Conan remote
@@ -114,11 +113,9 @@ jobs:
         run: conan list "ros-kilted/2026.06.17#*:*" -r=conan-ros -f=compact
 
       - name: Export ros-kilted recipe
-        working-directory: ${{ github.workspace }}
         run: conan export recipes/ros-kilted/all --version=2026.06.17
 
       - name: Install ros-kilted (build missing from source)
-        working-directory: ${{ github.workspace }}
         run: >
           conan install --requires=ros-kilted/2026.06.17
           --build=missing
@@ -129,12 +126,9 @@ jobs:
       # Uploads every binary that built from source (binary=Build)
       - name: Upload binaries built from source to Artifactory
         shell: bash
-        working-directory: ${{ github.workspace }}
         run: |
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
-          if python -c "import json,sys; d=json.load(open('upload_pkglist.json')); sys.exit(0 if d.get('Local Cache') else 1)"; then
-            conan upload --list=upload_pkglist.json -r conan-ros -c
-          fi
+          conan upload --list=upload_pkglist.json -r conan-ros -c
 
       - name: Run ros-kilted test_package
         working-directory: ${{ github.workspace }}
@@ -156,8 +150,4 @@ jobs:
         working-directory: ${{ github.workspace }}/examples/pose_estimation
         run: |
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
-          if python -c "import json,sys; d=json.load(open('upload_pkglist.json')); sys.exit(0 if d.get('Local Cache') else 1)"; then
-            conan upload --list=upload_pkglist.json -r conan-ros -c
-          else
-            echo "Nothing built from source to upload."
-          fi
+          conan upload --list=upload_pkglist.json -r conan-ros -c
