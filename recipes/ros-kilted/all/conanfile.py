@@ -256,9 +256,8 @@ class Ros2KiltedConan(ConanFile):
             tc.variables["TRACETOOLS_DISABLED"] = True
         tc.generate()
         # Conan's vs_runtime block calls cmake_policy(GET CMP0091) before any variables block runs,
-        # so CMAKE_POLICY_DEFAULT_CMP0091 set inside the toolchain is already too late. A wrapper
-        # that sets the policy and then includes the real toolchain is the clean alternative to
-        # patching the generated file.
+        # so CMAKE_POLICY_DEFAULT_CMP0091 set inside the toolchain is already too late. Use a wrapper
+        # that sets the policy and then includes the real toolchain
         conan_tc = os.path.join(self.generators_folder, CMakeToolchain.filename).replace("\\", "/")
         save(self, os.path.join(self.generators_folder, "ros_toolchain.cmake"),
              "if(POLICY CMP0091)\n"
