@@ -22,7 +22,7 @@ from conan.tools.system import PyEnv
 PIP_BUILD_TOOLS = (
     # --- colcon ---
     "colcon-cmake>=0.2.28,<0.3",
-    "colcon-core>=0.17.1,<0.18",
+    "colcon-core>=0.17.1,<0.22",
     "colcon-defaults>=0.2.8,<0.3",
     "colcon-library-path>=0.2.1,<0.3",
     "colcon-metadata>=0.2.5,<0.3",
