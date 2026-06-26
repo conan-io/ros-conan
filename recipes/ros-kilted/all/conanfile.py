@@ -269,48 +269,7 @@ class Ros2KiltedConan(ConanFile):
         # Colcon must not descend into site-packages under this venv.
         save(self, os.path.join(pyenv.env_dir, "COLCON_IGNORE"), "")
 
-        # colcon drops rosidl_adapter & friends into install/lib/python*/site-packages;
-        # the venv python invoked by CMake's execute_process doesn't see those paths
-        # (colcon's PYTHONPATH plumbing is shell-hook only). Two complementary fixes:
-        # 1. A .pth file in venv site-packages that globs the colcon install tree (belt).
-        # 2. PYTHONPATH prepended via VirtualBuildEnv below (suspenders).
-        # The Python version dir is detected from the venv's own lib layout.
-        venv_python_dirs = [
-            d for d in os.listdir(os.path.join(pyenv.env_dir, "lib"))
-            if d.startswith("python")
-            and os.path.isdir(os.path.join(pyenv.env_dir, "lib", d, "site-packages"))
-        ] if os.path.isdir(os.path.join(pyenv.env_dir, "lib")) else []
-        self.output.info(
-            f"[ros-kilted] pyenv.env_dir={pyenv.env_dir}, "
-            f"detected venv python dirs={venv_python_dirs}")
-
         install_root = os.path.join(self.build_folder, "install")
-        install_site_packages = [
-            os.path.join(install_root, "lib", d, "site-packages")
-            for d in venv_python_dirs
-        ] + [os.path.join(install_root, "Lib", "site-packages")]
-        self.output.info(
-            f"[ros-kilted] colcon install site-packages PYTHONPATH entries: "
-            f"{install_site_packages}")
-
-        pth_line = (
-            "import sys, glob, os; "
-            f"_inst = {install_root!r}; "
-            "sys.path[0:0] = ("
-            "sorted(glob.glob(os.path.join(_inst, 'lib', 'python*', 'site-packages'))) "
-            "+ sorted(glob.glob(os.path.join(_inst, 'Lib', 'site-packages')))"
-            ")\n"
-        )
-        venv_site_packages = (
-            glob.glob(os.path.join(pyenv.env_dir, "lib", "python*", "site-packages"))
-            + glob.glob(os.path.join(pyenv.env_dir, "Lib", "site-packages"))
-        )
-        self.output.info(
-            f"[ros-kilted] writing ros2_install.pth into: {venv_site_packages}")
-        for sp in venv_site_packages:
-            pth_path = os.path.join(sp, "ros2_install.pth")
-            save(self, pth_path, pth_line)
-            self.output.info(f"[ros-kilted]   wrote {pth_path}")
 
         py_exe = pyenv.env_exe.replace("\\", "/")
         py_root = pyenv.env_dir.replace("\\", "/")
@@ -354,11 +313,12 @@ class Ros2KiltedConan(ConanFile):
         VCVars(self).generate()
         vbe = VirtualBuildEnv(self)
         vbe.environment().define("ROS_DISTRO", "kilted")
-        # Suspenders for the .pth belt above: paths don't exist yet but PYTHONPATH is resolved lazily.
-        for sp in install_site_packages:
-            vbe.environment().prepend_path("PYTHONPATH", sp)
-        # Same trick for dlopen: tools built and invoked in the same colcon run (e.g. cyclonedds idlc)
-        # need install/lib on LD_LIBRARY_PATH before their RUNPATH is in effect.
+        py_ver = str(self.options.python_version)
+        vbe.environment().prepend_path("PYTHONPATH",
+            os.path.join(install_root, "lib", f"python{py_ver}", "site-packages"))
+        vbe.environment().prepend_path("PYTHONPATH",
+            os.path.join(install_root, "Lib", "site-packages"))
+        # install/lib on LD_LIBRARY_PATH so tools built mid-run (e.g. cyclonedds idlc) can dlopen.
         install_lib = os.path.join(self.build_folder, "install", "lib")
         install_bin = os.path.join(self.build_folder, "install", "bin")
         vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
