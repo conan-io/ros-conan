@@ -50,6 +50,17 @@ jobs:
       CONAN_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
 
     steps:
+      - name: Free disk space
+        if: runner.os == 'Linux' && matrix.variant == 'desktop'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: true
+
       - name: Enable long paths for git
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
