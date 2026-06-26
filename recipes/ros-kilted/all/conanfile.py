@@ -12,7 +12,6 @@ from conan.tools.files import (
     copy,
     get,
     mkdir,
-    replace_in_file,
     rmdir,
     save,
 )
@@ -250,14 +249,22 @@ class Ros2KiltedConan(ConanFile):
         tc.variables["Python3_EXECUTABLE"] = py_exe
         tc.variables["Python_ROOT_DIR"] = py_root
         tc.variables["Python_EXECUTABLE"] = py_exe
-        tc.variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
         # tc.variables["USE_SYSTEM_ZENOH"] = True  # re-enable with zenoh-c/zenoh-cpp requires
         tc.variables["CMAKE_BUILD_TYPE"] = str(self.settings.build_type)
         if self.settings.os == "Linux":
             # tracetools' CMakeLists is disabled on WIN32/APPLE/ANDROID/BSD; do the same for Linux.
             tc.variables["TRACETOOLS_DISABLED"] = True
         tc.generate()
-        self._patch_conan_toolchain_cmp0091_early()
+        # Conan's vs_runtime block calls cmake_policy(GET CMP0091) before any variables block runs,
+        # so CMAKE_POLICY_DEFAULT_CMP0091 set inside the toolchain is already too late. A wrapper
+        # that sets the policy and then includes the real toolchain is the clean alternative to
+        # patching the generated file.
+        conan_tc = os.path.join(self.generators_folder, CMakeToolchain.filename).replace("\\", "/")
+        save(self, os.path.join(self.generators_folder, "ros_toolchain.cmake"),
+             "if(POLICY CMP0091)\n"
+             "  cmake_policy(SET CMP0091 NEW)\n"
+             "endif()\n"
+             f'include("{conan_tc}")\n')
         cmakedeps = CMakeDeps(self)
         cmakedeps.set_property("tinyxml2", "cmake_file_name", "TinyXML2")
         cmakedeps.set_property("tinyxml2", "cmake_extra_variables", {"TINYXML2_LIBRARY": "tinyxml2::tinyxml2"})
@@ -280,24 +287,6 @@ class Ros2KiltedConan(ConanFile):
         vbe.environment().prepend_path("DYLD_LIBRARY_PATH", install_lib)
         vbe.environment().prepend_path("PATH", install_bin)
         vbe.generate()
-
-    def _patch_conan_toolchain_cmp0091_early(self):
-        """Conan's vs_runtime block runs cmake_policy(GET CMP0091) before variables set the default.
-        Colcon does not preset CMP0091; set the policy at the top of the toolchain so the check passes.
-        """
-        path = os.path.join(self.generators_folder, CMakeToolchain.filename)
-        block = (
-            "include_guard()\n"
-            "message(STATUS \"Using Conan toolchain: ${CMAKE_CURRENT_LIST_FILE}\")\n"
-        )
-        injection = (
-            "include_guard()\n"
-            "if(POLICY CMP0091)\n"
-            "  cmake_policy(SET CMP0091 NEW)\n"
-            "endif()\n"
-            "message(STATUS \"Using Conan toolchain: ${CMAKE_CURRENT_LIST_FILE}\")\n"
-        )
-        replace_in_file(self, path, block, injection, strict=True)
 
     def source(self):
         rosdistro_dir = os.path.join(self.source_folder, ".rosdistro")
@@ -339,7 +328,7 @@ class Ros2KiltedConan(ConanFile):
         # Leading space in --cmake-args value required: colcon-cmake's argparse sees -D... as a
         # new flag without it; type=str.lstrip strips the space before passing to cmake.
         toolchain_file = os.path.join(
-            self.generators_folder, CMakeToolchain.filename).replace("\\", "/")
+            self.generators_folder, "ros_toolchain.cmake").replace("\\", "/")
         variant = self._VARIANT_TARGET[str(self.options.variant)]
         cmd = (
             f'colcon build --merge-install '
