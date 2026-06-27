@@ -12,7 +12,6 @@ from conan.tools.files import (
     copy,
     get,
     mkdir,
-    replace_in_file,
     rmdir,
     save,
 )
@@ -71,7 +70,7 @@ PIP_BUILD_TOOLS = (
     "pydocstyle==6.3.0",
     "pydot==1.4.2",
     "pyflakes==3.2.0",
-    #"pygraphviz==1.11",
+    # "pygraphviz==1.11",
     "pyparsing==3.1.1",
     "PyQt5==5.15.11",
     # "PyQt5-sip==12.12.2",
@@ -99,9 +98,9 @@ PIP_BUILD_TOOLS = (
 class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
     version = "2026.06.17"
-    provides = "ros"  # To avoid name conflicts with other ros packages: ros-rolling, ros-humble, etc.
+    provides = "ros"  # avoids conflicts with ros-rolling, ros-humble, etc.
     exports_sources = "conandata.yml", "patches/*"
-    # Shared stack + executables: keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH.
+    # shared-library keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH
     package_type = "shared-library"
     license = "Apache-2.0"
     url = "https://docs.ros.org/en/kilted/"
@@ -114,26 +113,19 @@ class Ros2KiltedConan(ConanFile):
     default_options = {
         "variant": "core",
         "python_version": "3.12",
-        # CCI ffmpeg recipe declares `avcodec.requires.append("libwebp::libwebp")` but the
-        # libwebp recipe exposes components `webp`/`webpdecoder`/...; the missing target name
-        # breaks OpenCV's CMakeDeps consumption. OpenCV links libwebp directly for image I/O
-        # so disabling FFmpeg's WebP path costs nothing for ROS desktop usage.
+        # CCI ffmpeg declares avcodec.requires("libwebp::libwebp") but the CCI libwebp recipe
+        # exposes component "webp", not "libwebp"; the mismatch breaks OpenCV's CMakeDeps.
         "ffmpeg/*:with_libwebp": False,
-        # Qt must be shared for rviz: the QPA platform plugin (cocoa on macOS, xcb on Linux,
-        # qwindows on Windows) is loaded at runtime from disk. With static Qt the plugin
-        # would have to be baked in via Q_IMPORT_PLUGIN, which rviz does not do, so the GUI
-        # fails with "Could not find the Qt platform plugin". Static Qt also duplicates Qt
-        # symbols across rviz_rendering/rviz_common/rviz2 binaries (objc class collisions).
+        # RViz QPA platform plugin (cocoa/xcb/qwindows) is loaded at runtime from disk;
+        # static Qt requires Q_IMPORT_PLUGIN (not done by rviz) and causes ObjC class
+        # collisions across rviz_rendering/rviz_common/rviz2.
         "qt/*:shared": True,
-        # rviz_common ships its toolbar/cursor icons as SVG and loads them through
-        # QPixmap. Without the QtSvg image plugin those files silently fail with
-        # "Could not load pixmap package://rviz_common/icons/...svg".
+        # rviz_common loads toolbar/cursor SVG icons via QPixmap; without QtSvg they silently
+        # fail with "Could not load pixmap package://rviz_common/icons/...svg".
         "qt/*:qtsvg": True,
     }
 
-    # ros2/variants metapackages. core/base prefixed with `ros_`; desktop variants not.
-    # Status: `core` builds. `base` reuses core's Conan deps (only adds ROS source pkgs).
-    # `desktop` blocked on Qt5, `desktop_full` on Qt5 + VTK (none on CCI). See requirements().
+    # core/base use ros_ prefix (ros_core, ros_base); desktop variants don't.
     _VARIANT_TARGET = {
         "core": "ros_core",
         "base": "ros_base",
@@ -154,7 +146,6 @@ class Ros2KiltedConan(ConanFile):
             self.options["python_orocos_kdl/*"].python_version = str(self.options.python_version)
 
     def layout(self):
-        # Single-tree colcon workspace: src/, build/, install/, log/ under ros2_ws/
         ws = "ros2_ws"
         self.folders.source = ws
         self.folders.build = ws
@@ -164,11 +155,6 @@ class Ros2KiltedConan(ConanFile):
         self.requires("openssl/[>=3.3 <4]", transitive_libs=True)
         self.requires("zlib/1.3.1")
         self.requires("fmt/10.2.1")
-        # Temporarily off: no matching ConanCenter prebuilt for this Windows/MSVC profile (re-enable with
-        # --build=missing or after binaries exist). Missing-binary set included:
-        # assimp/5.3.1, cppcheck/2.15.0, dav1d/1.5.3, ffmpeg/4.4.4, freetype/2.13.2, libcurl/8.5.0,
-        # libtiff/4.6.0, libvpx/1.15.2, libx265/3.6, openh264/2.6.0,
-        # protobuf/3.21.12, xz_utils/5.8.3 (opencv pulls most of the media stack).
         self.requires("spdlog/1.12.0")
         self.requires("eigen/3.4.0")
         self.requires("yaml-cpp/0.8.0")
@@ -184,22 +170,20 @@ class Ros2KiltedConan(ConanFile):
         self.requires("bullet3/3.25")
         self.requires("cunit/2.1-3")
         self.requires("libyaml/0.2.5")
-        #self.requires("zenoh-c/1.8.0")
-        #self.requires("zenoh-cpp/1.8.0")
         self.requires("pybind11/2.11.1")
-        # Replaces Fast-DDS' ExternalProject of eProsima/memory. Note CCI uses
-        # a hyphen in the package name; cmake_file_name is forced below so the
-        # vendor's `find_package(foonathan_memory)` (underscore) still resolves.
+        # zenoh Rust/cargo pipeline is flaky on macOS 26; re-enable with USE_SYSTEM_ZENOH below.
+        # self.requires("zenoh-c/1.8.0")
+        # self.requires("zenoh-cpp/1.8.0")
+        # CCI names it foonathan-memory (hyphen); cmake_file_name below maps to foonathan_memory
+        # (underscore) so Fast-DDS vendor's find_package(foonathan_memory) still resolves.
         self.requires("foonathan-memory/0.7.3", transitive_headers=True, transitive_libs=True)
         # Replaces mcap_vendor's FetchContent of foxglove/mcap.
         self.requires("mcap/1.4.1")
 
-        # Variant-scoped requires (package_id reflects the exact dep set per variant).
-        # `base` adds orocos_kdl + python_orocos_kdl so python_orocos_kdl_vendor finds PyKDL
-        # on PYTHONPATH; other base-only ROS packages still reuse core Conan deps.
         variant = str(self.options.variant)
 
         if variant in ("base", "desktop", "desktop_full"):
+            # base adds orocos_kdl + python_orocos_kdl so python_orocos_kdl_vendor finds PyKDL
             self.requires("orocos_kdl/1.5.1")
             self.requires("python_orocos_kdl/1.5.1")
 
@@ -209,42 +193,24 @@ class Ros2KiltedConan(ConanFile):
             self.requires("freetype/2.13.2")
             self.requires("libcurl/8.5.0")
             self.requires("openjpeg/2.5.2", override=True)
-            # sdl2_vendor calls find_package(SDL2) before its ExternalProject; Conan's
-            # CMakeDeps-generated SDL2Config.cmake satisfies that check automatically,
-            # so the ExternalProject is skipped entirely (no ExternalProject compile needed).
+            # sdl2_vendor calls find_package(SDL2) before its ExternalProject; CMakeDeps
+            # satisfies the check so the ExternalProject build is skipped entirely.
             self.requires("sdl/2.32.10")
-            # Default qt/*:shared=False is static-only (no qwindows.dll under plugins/);
-            # RViz/Qt QPA still loads platform plugins at runtime → require shared Qt.
             self.requires("qt/5.15.18", options={"shared": True})
-            # OGRE (built by rviz_ogre_vendor from upstream sources) #include's
-            # <GL/glu.h> via its bundled glew.h. xorg/system and opengl/system
-            # come along transitively through qt+opencv (and install the X11
-            # core + libgl-dev apt deps on Linux), but neither covers GLU.
-            # glu/system installs libglu1-mesa-dev on Debian/Ubuntu (and the
-            # right equivalent on Fedora/Arch/SUSE/Alpine/FreeBSD), is a no-op
-            # on macOS where GLU is part of the OpenGL framework, and exposes
-            # glu32 as a system_lib on Windows. Cross-platform-aware so no
-            # need to gate by self.settings.os here.
+            # OGRE's bundled glew.h includes <GL/glu.h>; qt/opencv bring opengl/system but not
+            # GLU. glu/system installs libglu1-mesa-dev on Linux, is a no-op on macOS (part of
+            # the OpenGL framework), and exposes glu32 on Windows.
             self.requires("glu/system")
-            # OGRE is built by rviz_ogre_vendor from upstream sources; zlib/freetype are
-            # find_package'd on Windows (patched) and supplied via Conan with the colcon toolchain.
             if self.settings.os == "Linux":
-                # qt/5.15.18 hard-pins xkbcommon/1.5.0, opencv/4.9.0 (with_wayland=True
-                # by default on Linux) hard-pins xkbcommon/1.6.0 → graph conflict. Both
-                # consume the same xkbcommon::libxkbcommon[-x11] targets, so force a
-                # single version. Only meaningful on Linux; xkbcommon is not pulled in
-                # by qt/opencv on Windows or macOS.
+                # qt/5.15.18 pins xkbcommon/1.5.0; opencv (with_wayland=True) pins 1.6.0.
+                # Both use the same targets so forcing 1.6.0 is safe.
                 self.requires("xkbcommon/1.6.0", override=True)
-
-        if variant in ("desktop", "desktop_full"):
-            # pcl_conversions (perception_pcl) is a desktop+ dep; desktop_full
-            # adds PCL visualization which requires VTK (not on CCI yet).
             self.requires("pcl/1.14.1")
-            # self.requires("vtk/9.x")  # Not on ConanCenter; required for PCL visualization — provide via system or custom recipe.
+            # self.requires("vtk/9.x")  # not on ConanCenter; needed for PCL visualization
 
     def build_requirements(self):
         self.tool_requires("cmake/3.28.5")
-        # self.tool_requires("cppcheck/2.15.0")  # see requirements() comment: missing binary for profile
+        # self.tool_requires("cppcheck/2.15.0")  # no prebuilt binary for Windows/MSVC profile
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
@@ -252,15 +218,10 @@ class Ros2KiltedConan(ConanFile):
     def generate(self):
         pyenv = PyEnv(self, py_version=str(self.options.python_version))
         pyenv.install(list(PIP_BUILD_TOOLS))
-        # ament_cmake_core's templates_2_cmake.py imports `ament_package` at CMake
-        # configure time, but ament_cmake_core's package.xml only declares
-        # ament_package as <buildtool_export_depend> (not <buildtool_depend>), so
-        # colcon schedules them in the same parallel batch and ament_cmake_core
-        # configures before ament_package has been built. Stock Ubuntu ROS dev
-        # setups paper over this with `python3-ament-package` from apt; in our
-        # isolated PyEnv nothing satisfies the import. Pre-install ament_package
-        # directly from the workspace source (vcstool just unpacked it under
-        # src/ament/ament_package) so the very first cmake invocation succeeds.
+        # ament_cmake_core imports ament_package at CMake configure time, but colcon schedules
+        # both packages in the same parallel batch so ament_cmake_core runs first. Pre-install
+        # from source (vcstool unpacked it under src/ament/ament_package) so the first cmake
+        # invocation succeeds.
         ament_package_src = os.path.join(
             self.source_folder, "src", "ament", "ament_package")
         if os.path.isdir(ament_package_src):
@@ -275,11 +236,7 @@ class Ros2KiltedConan(ConanFile):
         py_root = pyenv.env_dir.replace("\\", "/")
 
         tc = CMakeToolchain(self)
-        # Clang 15+/Apple Clang 21 enforce C++23 rules that asio 1.28.1 and
-        # FastDDS 3.2.3 still trip on. -Wno-error=<tag> downgrades each to a
-        # warning but keeps it visible; plain -Wno-<tag> would be re-enabled
-        # by the `-Wall` that fastdds/cyclonedds append later in their own
-        # target_compile_options.
+        # asio 1.28.1 and FastDDS 3.2.3 trip on C++23 rules enforced by Clang 15+/Apple Clang 21.
         if self.settings.compiler in ("apple-clang", "clang"):
             tc.extra_cxxflags.extend([
                 "-Wno-error=deprecated-literal-operator",  # asio operator"" _buf
@@ -292,17 +249,21 @@ class Ros2KiltedConan(ConanFile):
         tc.variables["Python3_EXECUTABLE"] = py_exe
         tc.variables["Python_ROOT_DIR"] = py_root
         tc.variables["Python_EXECUTABLE"] = py_exe
-        tc.variables["CMAKE_POLICY_DEFAULT_CMP0091"] = "NEW"
-        # Zenoh RMW is disabled: its rust/cargo pipeline is flaky on macOS 26.
-        # Re-enable by: uncomment zenoh-c/zenoh-cpp requires, USE_SYSTEM_ZENOH,
-        # and the matching --packages-ignore entries in build().
-        # tc.variables["USE_SYSTEM_ZENOH"] = True
+        # tc.variables["USE_SYSTEM_ZENOH"] = True  # re-enable with zenoh-c/zenoh-cpp requires
         tc.variables["CMAKE_BUILD_TYPE"] = str(self.settings.build_type)
         if self.settings.os == "Linux":
-            # tracetools' CMakeLists disabled on WIN32/APPLE/ANDROID/BSD, do the same for Linux
+            # tracetools' CMakeLists is disabled on WIN32/APPLE/ANDROID/BSD; do the same for Linux.
             tc.variables["TRACETOOLS_DISABLED"] = True
         tc.generate()
-        self._patch_conan_toolchain_cmp0091_early()
+        # Conan's vs_runtime block calls cmake_policy(GET CMP0091) before any variables block runs,
+        # so CMAKE_POLICY_DEFAULT_CMP0091 set inside the toolchain is already too late. Use a wrapper
+        # that sets the policy and then includes the real toolchain
+        conan_tc = os.path.join(self.generators_folder, CMakeToolchain.filename).replace("\\", "/")
+        save(self, os.path.join(self.generators_folder, "ros_toolchain.cmake"),
+             "if(POLICY CMP0091)\n"
+             "  cmake_policy(SET CMP0091 NEW)\n"
+             "endif()\n"
+             f'include("{conan_tc}")\n')
         cmakedeps = CMakeDeps(self)
         cmakedeps.set_property("tinyxml2", "cmake_file_name", "TinyXML2")
         cmakedeps.set_property("tinyxml2", "cmake_extra_variables", {"TINYXML2_LIBRARY": "tinyxml2::tinyxml2"})
@@ -318,7 +279,7 @@ class Ros2KiltedConan(ConanFile):
             os.path.join(install_root, "lib", f"python{py_ver}", "site-packages"))
         vbe.environment().prepend_path("PYTHONPATH",
             os.path.join(install_root, "Lib", "site-packages"))
-        # install/lib on LD_LIBRARY_PATH so tools built mid-run (e.g. cyclonedds idlc) can dlopen.
+        # LD_LIBRARY_PATH/PATH so tools built mid-build (e.g. cyclonedds idlc) can dlopen.
         install_lib = os.path.join(self.build_folder, "install", "lib")
         install_bin = os.path.join(self.build_folder, "install", "bin")
         vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
@@ -326,37 +287,17 @@ class Ros2KiltedConan(ConanFile):
         vbe.environment().prepend_path("PATH", install_bin)
         vbe.generate()
 
-    def _patch_conan_toolchain_cmp0091_early(self):
-        """Conan's vs_runtime block runs cmake_policy(GET CMP0091) before variables set the default.
-        Colcon does not preset CMP0091; set the policy at the top of the toolchain so the check passes.
-        """
-        path = os.path.join(self.generators_folder, CMakeToolchain.filename)
-        block = (
-            "include_guard()\n"
-            "message(STATUS \"Using Conan toolchain: ${CMAKE_CURRENT_LIST_FILE}\")\n"
-        )
-        injection = (
-            "include_guard()\n"
-            "if(POLICY CMP0091)\n"
-            "  cmake_policy(SET CMP0091 NEW)\n"
-            "endif()\n"
-            "message(STATUS \"Using Conan toolchain: ${CMAKE_CURRENT_LIST_FILE}\")\n"
-        )
-        replace_in_file(self, path, block, injection, strict=True)
-
     def source(self):
         rosdistro_dir = os.path.join(self.source_folder, ".rosdistro")
         get(self, **self.conan_data["sources"][self.version]["rosdistro"],
             destination=rosdistro_dir, strip_root=True)
 
-        # setuptools<80 pinned: vcstool 0.3.0 imports pkg_resources (removed in setuptools 80).
+        # vcstool 0.3.0 imports pkg_resources, removed in setuptools 80.
         boot_folder = os.path.join(self.source_folder, ".bootstrap")
         boot = PyEnv(self, folder=boot_folder, name="vcs")
         boot.install(["setuptools<80", "vcstool", "rosinstall_generator"])
 
-        # desktop_full is the superset; --packages-up-to in build() filters per variant.
-        # No --upstream: bloom release branches (release/kilted/X.Y.Z), not git tags.
-        # Avoids v-prefix mismatches (iceoryx, foonathan_memory_vendor).
+        # Always clone desktop_full (superset); build() filters by variant.
         os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(
             rosdistro_dir, "index-v4.yaml").as_uri()
         repos_path = os.path.join(self.source_folder, "sources.repos")
@@ -375,28 +316,18 @@ class Ros2KiltedConan(ConanFile):
 
         apply_conandata_patches(self)
 
-        # OGRE 1.12.10's CMakeLists.txt has a buggy execute_process invocation that
-        # passes a literal shell pipe to xcodebuild, which fails on Xcode 26 (macOS
-        # 26 SDK) and corrupts CMAKE_OSX_SYSROOT. rviz_ogre_vendor consumes any
-        # patches under its `patches/` folder (PATCHES directive), so dropping our
-        # OGRE-targeting patch there gets applied to the upstream tarball before
-        # the OGRE configure runs. Copied unconditionally because Conan 2 forbids
-        # self.settings access in source(); the patched code path lives behind
-        # `elseif (APPLE AND NOT APPLE_IOS)` so it's dead code on Linux/Windows.
+        # rviz_ogre_vendor applies its patches/ dir to the OGRE tarball via PATCHES directive;
+        # drop our macOS sysroot fix there. Unconditional: patched code is dead on Linux/Windows.
         copy(self, "ogre-1.12.10-fix-macos-sysroot.patch",
              src=os.path.join(self.export_sources_folder, "patches"),
              dst=os.path.join(self.source_folder, "src", "rviz",
                               "rviz_ogre_vendor", "patches"))
 
     def build(self):
-        # Pass the Conan toolchain to each colcon-invoked cmake via -D. The
-        # leading space inside the value is required by colcon-cmake's
-        # argparse (-D... otherwise read as a new flag; `type=str.lstrip`
-        # strips it).
-        # --packages-ignore skips zenoh (Rust crates; flaky on macOS 26);
-        # rclcpp works fine with the default rmw_fastrtps_cpp.
+        # Leading space in --cmake-args value required: colcon-cmake's argparse sees -D... as a
+        # new flag without it; type=str.lstrip strips the space before passing to cmake.
         toolchain_file = os.path.join(
-            self.generators_folder, CMakeToolchain.filename).replace("\\", "/")
+            self.generators_folder, "ros_toolchain.cmake").replace("\\", "/")
         variant = self._VARIANT_TARGET[str(self.options.variant)]
         cmd = (
             f'colcon build --merge-install '
@@ -415,14 +346,6 @@ class Ros2KiltedConan(ConanFile):
         copy(self, "*", src=inst, dst=self.package_folder)
 
     def finalize(self):
-        """Per-consumer relocation of colcon-installed Python entry points: builds a fresh PyEnv venv
-        at ``<pkg>/conan_pyenv`` with the build-time pip set, then retargets entry points (POSIX
-        rewrites shebangs in ``bin/``; Windows writes ``Scripts/<name>.cmd`` shims and removes
-        cli-64.exe stubs that PATHEXT would otherwise rank above ``.CMD``). Runs in finalize() so each
-        (package_id, host) gets a writable per-machine folder. The ``package_id()`` override injects
-        the build-time Python minor version into the fingerprint, so C-extensions are never loaded
-        under an incompatible interpreter.
-"""
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
         py_ver = str(self.info.options.python_version)
@@ -450,7 +373,6 @@ class Ros2KiltedConan(ConanFile):
                     os.remove(exe)
             return
 
-        # POSIX: rewrite python-style shebangs
         new_shebang = f"#!{pyenv.env_exe}\n".encode("utf-8")
         bin_dir = os.path.join(self.package_folder, "bin")
         for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
@@ -486,11 +408,8 @@ class Ros2KiltedConan(ConanFile):
             env.define("ROS_PYTHON_VERSION", "3")
             env.prepend_path("COLCON_PREFIX_PATH", p)
 
-        # Run PATH: rely on cpp_info.bindirs + VirtualRunEnv (see package_type); avoids duplicating PATH here.
-
-        # Vendors install merged relocatable trees under <prefix>/opt/<pkg>/{include,lib,bin}.
-        # ROS's setup.sh sources per-vendor hooks prepending opt/<pkg>/lib to DYLD_/LD_LIBRARY_PATH;
-        # replicate that here so dlopen works without sourcing setup.sh.
+        # Vendor packages install under opt/<pkg>/{include,lib,bin}; replicate what ROS's
+        # setup.sh does so dlopen works without sourcing the ROS environment.
         opt_dir = os.path.join(p, "opt")
         if os.path.isdir(opt_dir):
             for name in sorted(os.listdir(opt_dir)):
@@ -509,9 +428,7 @@ class Ros2KiltedConan(ConanFile):
                 bindir = os.path.join(vendor, "bin")
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
-        # ConanCenter qt exposes plugins under <prefix>/plugins but does not set
-        # QT_PLUGIN_PATH; without it rviz2/rqt fail (e.g. "Could not find the Qt
-        # platform plugin \"windows\"" on MSVC builds).
+        # CCI qt doesn't set QT_PLUGIN_PATH; without it rviz2/rqt fail to find the platform plugin.
         if str(self.options.variant) in ("desktop", "desktop_full"):
             try:
                 qt_dep = self.dependencies["qt"]
