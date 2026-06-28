@@ -174,8 +174,6 @@ class Ros2KiltedConan(ConanFile):
         # zenoh Rust/cargo pipeline is flaky on macOS 26; re-enable with USE_SYSTEM_ZENOH below.
         # self.requires("zenoh-c/1.8.0")
         # self.requires("zenoh-cpp/1.8.0")
-        # CCI names it foonathan-memory (hyphen); cmake_file_name below maps to foonathan_memory
-        # (underscore) so Fast-DDS vendor's find_package(foonathan_memory) still resolves.
         self.requires("foonathan-memory/0.7.3", transitive_headers=True, transitive_libs=True)
         # Replaces mcap_vendor's FetchContent of foxglove/mcap.
         self.requires("mcap/1.4.1")
@@ -265,6 +263,7 @@ class Ros2KiltedConan(ConanFile):
              "endif()\n"
              f'include("{conan_tc}")\n')
         cmakedeps = CMakeDeps(self)
+        cmakedeps.set_property("foonathan-memory", "cmake_file_name", "foonathan_memory")
         cmakedeps.set_property("tinyxml2", "cmake_file_name", "TinyXML2")
         cmakedeps.set_property("tinyxml2", "cmake_extra_variables", {"TINYXML2_LIBRARY": "tinyxml2::tinyxml2"})
         cmakedeps.set_property("asio", "cmake_file_name", "Asio")
