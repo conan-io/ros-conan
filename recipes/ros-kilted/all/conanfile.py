@@ -15,7 +15,7 @@ from conan.tools.files import (
     rmdir,
     save,
 )
-from conan.tools.microsoft import VCVars
+from conan.tools.microsoft import VCVars, is_msvc
 from conan.tools.system import PyEnv
 
 PIP_BUILD_TOOLS = (
@@ -174,8 +174,6 @@ class Ros2KiltedConan(ConanFile):
         # zenoh Rust/cargo pipeline is flaky on macOS 26; re-enable with USE_SYSTEM_ZENOH below.
         # self.requires("zenoh-c/1.8.0")
         # self.requires("zenoh-cpp/1.8.0")
-        # CCI names it foonathan-memory (hyphen); cmake_file_name below maps to foonathan_memory
-        # (underscore) so Fast-DDS vendor's find_package(foonathan_memory) still resolves.
         self.requires("foonathan-memory/0.7.3", transitive_headers=True, transitive_libs=True)
         # Replaces mcap_vendor's FetchContent of foxglove/mcap.
         self.requires("mcap/1.4.1")
@@ -265,13 +263,15 @@ class Ros2KiltedConan(ConanFile):
              "endif()\n"
              f'include("{conan_tc}")\n')
         cmakedeps = CMakeDeps(self)
+        cmakedeps.set_property("foonathan-memory", "cmake_file_name", "foonathan_memory")
         cmakedeps.set_property("tinyxml2", "cmake_file_name", "TinyXML2")
         cmakedeps.set_property("tinyxml2", "cmake_extra_variables", {"TINYXML2_LIBRARY": "tinyxml2::tinyxml2"})
         cmakedeps.set_property("asio", "cmake_file_name", "Asio")
         cmakedeps.set_property("lz4", "cmake_target_name", "LZ4::lz4")
         cmakedeps.set_property("zstd", "cmake_target_name", "zstd::zstd")
         cmakedeps.generate()
-        VCVars(self).generate()
+        if is_msvc(self):
+            VCVars(self).generate()
         vbe = VirtualBuildEnv(self)
         vbe.environment().define("ROS_DISTRO", "kilted")
         py_ver = str(self.options.python_version)
@@ -280,8 +280,8 @@ class Ros2KiltedConan(ConanFile):
         vbe.environment().prepend_path("PYTHONPATH",
             os.path.join(install_root, "Lib", "site-packages"))
         # LD_LIBRARY_PATH/PATH so tools built mid-build (e.g. cyclonedds idlc) can dlopen.
-        install_lib = os.path.join(self.build_folder, "install", "lib")
-        install_bin = os.path.join(self.build_folder, "install", "bin")
+        install_lib = os.path.join(install_root, "lib")
+        install_bin = os.path.join(install_root, "bin")
         vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
         vbe.environment().prepend_path("DYLD_LIBRARY_PATH", install_lib)
         vbe.environment().prepend_path("PATH", install_bin)
@@ -298,14 +298,19 @@ class Ros2KiltedConan(ConanFile):
         boot.install(["setuptools<80", "vcstool", "rosinstall_generator"])
 
         # Always clone desktop_full (superset); build() filters by variant.
-        os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(
-            rosdistro_dir, "index-v4.yaml").as_uri()
         repos_path = os.path.join(self.source_folder, "sources.repos")
         rig_exe = os.path.join(boot.bin_path, "rosinstall_generator")
-        with open(repos_path, "w", encoding="utf-8") as fh:
-            self.run(
-                f'"{rig_exe}" desktop_full --rosdistro kilted --deps --format repos',
-                stdout=fh, cwd=self.source_folder)
+        prev_url = os.environ.get("ROSDISTRO_INDEX_URL")
+        os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(rosdistro_dir, "index-v4.yaml").as_uri()
+        try:
+            with open(repos_path, "w", encoding="utf-8") as fh:
+                self.run(
+                    f'"{rig_exe}" desktop_full --rosdistro kilted --deps --format repos',
+                    stdout=fh, cwd=self.source_folder)
+        finally:
+            os.environ.pop("ROSDISTRO_INDEX_URL")
+            if prev_url is not None:
+                os.environ["ROSDISTRO_INDEX_URL"] = prev_url
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
             rmdir(self, src_dir)
@@ -430,10 +435,7 @@ class Ros2KiltedConan(ConanFile):
                     self.cpp_info.bindirs.append(bindir)
         # CCI qt doesn't set QT_PLUGIN_PATH; without it rviz2/rqt fail to find the platform plugin.
         if str(self.options.variant) in ("desktop", "desktop_full"):
-            try:
-                qt_dep = self.dependencies["qt"]
-            except KeyError:
-                qt_dep = None
+            qt_dep = self.dependencies.get("qt")
             if qt_dep:
                 qt_plugins = os.path.join(qt_dep.package_folder, "plugins")
                 if os.path.isdir(qt_plugins):
