@@ -394,6 +394,10 @@ class Ros2KiltedConan(ConanFile):
 
     def finalize(self):
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
+
+        if str(self.info.settings.os) != "Windows":
+            return
+        # Windows: recreate the venv with the consumer's Python so .cmd shims resolve it.
         PyEnv(self, folder=self.package_folder, py_version=str(self.info.options.python_version))
 
     def package_info(self):
@@ -447,12 +451,11 @@ class Ros2KiltedConan(ConanFile):
                     self.runenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
                     self.buildenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
 
-        pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
-        for env in (self.buildenv_info, self.runenv_info):
-            env.prepend_path("PATH", pyenv.bin_path)
         if str(self.settings.os) == "Windows":
+            pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
             py_exe = pyenv.env_exe
             for env in (self.buildenv_info, self.runenv_info):
+                env.prepend_path("PATH", pyenv.bin_path)
                 env.define("COLCON_PYTHON_EXECUTABLE", py_exe)
                 env.define("AMENT_PYTHON_EXECUTABLE", py_exe)
 
