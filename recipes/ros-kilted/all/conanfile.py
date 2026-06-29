@@ -362,7 +362,7 @@ class Ros2KiltedConan(ConanFile):
         pkgs = " ".join(f'"{p}"' for p in PIP_RUNTIME_TOOLS)
         self.run(
             f'"{pyenv.env_exe}" -m pip install --quiet --disable-pip-version-check '
-            f'--no-warn-script-location --prefix "{pkg}" {pkgs}'
+            f'--ignore-installed --no-warn-script-location --prefix "{pkg}" {pkgs}'
         )
         if str(self.settings.os) == "Windows":
             # pip generates binary .exe launchers with the build-time Python path baked in;
