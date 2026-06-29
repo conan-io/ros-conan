@@ -164,11 +164,9 @@ class Ros2KiltedConan(ConanFile):
         self.requires("tinyxml2/10.0.0")
         self.requires("nlohmann_json/3.11.3")
         self.requires("asio/1.28.1")
-        self.requires("gtest/1.17.0")
         self.requires("benchmark/1.8.3", options={"shared": True})
         self.requires("console_bridge/1.0.2")
         self.requires("bullet3/3.25")
-        self.requires("cunit/2.1-3")
         self.requires("libyaml/0.2.5")
         self.requires("pybind11/2.11.1")
         # TODO: zenoh Rust/cargo pipeline is flaky on macOS 26; re-enable once stable.
