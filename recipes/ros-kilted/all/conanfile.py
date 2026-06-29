@@ -18,7 +18,9 @@ from conan.tools.files import (
 from conan.tools.microsoft import VCVars, is_msvc
 from conan.tools.system import PyEnv
 
-PIP_BUILD_TOOLS = (
+# Packages needed at runtime by consumers of this package (ros2 CLI, colcon, rqt, etc.).
+# Also installed into the build venv during generate().
+PIP_RUNTIME_TOOLS = (
     # --- colcon ---
     "colcon-cmake>=0.2.28,<0.3",
     "colcon-core>=0.17.1,<0.22",
@@ -37,14 +39,40 @@ PIP_BUILD_TOOLS = (
     "colcon-ros>=0.5.0,<0.6",
     "colcon-ros-domain-id-coordinator>=0.2.1,<0.3",
     "colcon-test-result>=0.3.8,<0.4",
-    # --- Python pins ---
+    # --- ROS runtime Python deps ---
     "argcomplete==3.1.4",
     "catkin_pkg==1.0.0",
-    "coverage==7.4.4",
     "cryptography==41.0.7",
-    "distlib==0.3.8",
     "docutils==0.20.1",
     "empy==3.3.4",
+    "fastjsonschema==2.19.0",
+    "importlib-metadata==4.13.0",
+    "lark==1.1.9",
+    "lxml==5.2.1",
+    "numpy==1.26.4",
+    "packaging==24.0",
+    "pathspec==0.12.1",
+    "pluggy==1.4.0",
+    "psutil==5.9.8",
+    "pydot==1.4.2",
+    "pyparsing==3.1.1",
+    # PyQt5 provides the Python Qt bindings for rqt; the Conan qt/* dep covers the C++ side.
+    "PyQt5==5.15.11",
+    "python-dateutil==2.8.2",
+    "PyYAML==6.0.1",
+    "setuptools==68.1.2",
+    "six==1.16.0",
+    "typing_extensions==4.10.0",
+    "vcstool==0.3.0",
+    "zipp==1.0.0",
+    "wheel",
+)
+
+# Lint and test tooling needed during the ROS build (ament_lint, ament_cmake_pytest, etc.)
+# but not at runtime. Only installed in the build venv; not bundled into the consumer package.
+_PIP_BUILD_ONLY = (
+    "coverage==7.4.4",
+    "distlib==0.3.8",
     "flake8==7.0.0",
     "flake8-blind-except==0.2.1",
     "flake8-builtins==2.1.0",
@@ -54,26 +82,13 @@ PIP_BUILD_TOOLS = (
     "flake8-docstrings==1.6.0",
     "flake8-import-order==0.18.2",
     "flake8-quotes==3.4.0",
-    "importlib-metadata==4.13.0",
     "iniconfig==1.1.1",
-    "lark==1.1.9",
-    "lxml==5.2.1",
     "mccabe==0.7.0",
     "mypy==1.9.0",
     "mypy-extensions==1.0.0",
-    "numpy==1.26.4",
-    "packaging==24.0",
-    "pathspec==0.12.1",
-    "pluggy==1.4.0",
-    "psutil==5.9.8",
     "pycodestyle==2.11.1",
     "pydocstyle==6.3.0",
-    "pydot==1.4.2",
     "pyflakes==3.2.0",
-    # "pygraphviz==1.11",
-    "pyparsing==3.1.1",
-    "PyQt5==5.15.11",
-    # "PyQt5-sip==12.12.2",
     "pytest==7.4.4",
     "pytest-cov==4.1.0",
     "pytest-mock==3.12.0",
@@ -81,18 +96,11 @@ PIP_BUILD_TOOLS = (
     "pytest-rerunfailures==12.0",
     "pytest-runner==6.0.0",
     "pytest-timeout==2.2.0",
-    "python-dateutil==2.8.2",
-    "fastjsonschema==2.19.0",
-    "PyYAML==6.0.1",
-    "setuptools==68.1.2",
-    "six==1.16.0",
     "snowballstemmer==2.2.0",
-    "typing_extensions==4.10.0",
-    "vcstool==0.3.0",
     "yamllint==1.33.0",
-    "zipp==1.0.0",
-    "wheel",
 )
+
+PIP_BUILD_TOOLS = PIP_RUNTIME_TOOLS + _PIP_BUILD_ONLY
 
 
 class Ros2KiltedConan(ConanFile):
@@ -123,14 +131,6 @@ class Ros2KiltedConan(ConanFile):
         # rviz_common loads toolbar/cursor SVG icons via QPixmap; without QtSvg they silently
         # fail with "Could not load pixmap package://rviz_common/icons/...svg".
         "qt/*:qtsvg": True,
-    }
-
-    # core/base use ros_ prefix (ros_core, ros_base); desktop variants don't.
-    _VARIANT_TARGET = {
-        "core": "ros_core",
-        "base": "ros_base",
-        "desktop": "desktop",
-        "desktop_full": "desktop_full",
     }
 
     def validate(self):
@@ -171,7 +171,7 @@ class Ros2KiltedConan(ConanFile):
         self.requires("cunit/2.1-3")
         self.requires("libyaml/0.2.5")
         self.requires("pybind11/2.11.1")
-        # zenoh Rust/cargo pipeline is flaky on macOS 26; re-enable with USE_SYSTEM_ZENOH below.
+        # TODO: zenoh Rust/cargo pipeline is flaky on macOS 26; re-enable once stable.
         # self.requires("zenoh-c/1.8.0")
         # self.requires("zenoh-cpp/1.8.0")
         self.requires("foonathan-memory/0.7.3", transitive_headers=True, transitive_libs=True)
@@ -204,11 +204,11 @@ class Ros2KiltedConan(ConanFile):
                 # Both use the same targets so forcing 1.6.0 is safe.
                 self.requires("xkbcommon/1.6.0", override=True)
             self.requires("pcl/1.14.1")
-            # self.requires("vtk/9.x")  # not on ConanCenter; needed for PCL visualization
+            # TODO: vtk/9.x not yet on ConanCenter; needed for PCL visualization module.
 
     def build_requirements(self):
         self.tool_requires("cmake/3.28.5")
-        # self.tool_requires("cppcheck/2.15.0")  # no prebuilt binary for Windows/MSVC profile
+        # TODO: cppcheck/2.15.0 has no prebuilt binary for Windows/MSVC profile.
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
@@ -243,11 +243,13 @@ class Ros2KiltedConan(ConanFile):
         tc.variables["BUILD_TESTING"] = False
         # Disable cv_bridge python to avoid Boost::python require due to numpy
         tc.variables["CV_BRIDGE_DISABLE_PYTHON"] = True
+        # Python3_ROOT_DIR/Python3_EXECUTABLE for CMake >=3.12 FindPython3;
+        # Python_ROOT_DIR/Python_EXECUTABLE for legacy FindPython used by some ROS packages.
         tc.variables["Python3_ROOT_DIR"] = py_root
         tc.variables["Python3_EXECUTABLE"] = py_exe
         tc.variables["Python_ROOT_DIR"] = py_root
         tc.variables["Python_EXECUTABLE"] = py_exe
-        # tc.variables["USE_SYSTEM_ZENOH"] = True  # re-enable with zenoh-c/zenoh-cpp requires
+        # TODO: tc.variables["USE_SYSTEM_ZENOH"] = True  # re-enable with zenoh-c/zenoh-cpp requires
         tc.variables["CMAKE_BUILD_TYPE"] = str(self.settings.build_type)
         if self.settings.os == "Linux":
             # tracetools' CMakeLists is disabled on WIN32/APPLE/ANDROID/BSD; do the same for Linux.
@@ -279,11 +281,14 @@ class Ros2KiltedConan(ConanFile):
             os.path.join(install_root, "lib", f"python{py_ver}", "site-packages"))
         vbe.environment().prepend_path("PYTHONPATH",
             os.path.join(install_root, "Lib", "site-packages"))
-        # LD_LIBRARY_PATH/PATH so tools built mid-build (e.g. cyclonedds idlc) can dlopen.
+        # LD_LIBRARY_PATH/DYLD_LIBRARY_PATH/PATH so tools built mid-build (e.g. cyclonedds idlc)
+        # can dlopen their own libs before the merged install is complete.
         install_lib = os.path.join(install_root, "lib")
         install_bin = os.path.join(install_root, "bin")
-        vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
-        vbe.environment().prepend_path("DYLD_LIBRARY_PATH", install_lib)
+        if self.settings.os == "Linux":
+            vbe.environment().prepend_path("LD_LIBRARY_PATH", install_lib)
+        elif self.settings.os == "Macos":
+            vbe.environment().prepend_path("DYLD_LIBRARY_PATH", install_lib)
         vbe.environment().prepend_path("PATH", install_bin)
         vbe.generate()
 
@@ -321,19 +326,24 @@ class Ros2KiltedConan(ConanFile):
 
         apply_conandata_patches(self)
 
-        # rviz_ogre_vendor applies its patches/ dir to the OGRE tarball via PATCHES directive;
-        # drop our macOS sysroot fix there. Unconditional: patched code is dead on Linux/Windows.
+        # rviz_ogre_vendor picks up extra patches from its own patches/ subdirectory via the
+        # CMake PATCHES directive during OGRE's ExternalProject build — not apply_conandata_patches.
+        # Copy our macOS sysroot fix there so it is picked up. Dead code on Linux/Windows.
         copy(self, "ogre-1.12.10-fix-macos-sysroot.patch",
              src=os.path.join(self.export_sources_folder, "patches"),
              dst=os.path.join(self.source_folder, "src", "rviz",
                               "rviz_ogre_vendor", "patches"))
 
     def build(self):
+        variant_targets = {
+            "core": "ros_core", "base": "ros_base",
+            "desktop": "desktop", "desktop_full": "desktop_full",
+        }
         # Leading space in --cmake-args value required: colcon-cmake's argparse sees -D... as a
         # new flag without it; type=str.lstrip strips the space before passing to cmake.
         toolchain_file = os.path.join(
             self.generators_folder, "ros_toolchain.cmake").replace("\\", "/")
-        variant = self._VARIANT_TARGET[str(self.options.variant)]
+        variant = variant_targets[str(self.options.variant)]
         cmd = (
             f'colcon build --merge-install '
             f'--cmake-args " -DCMAKE_TOOLCHAIN_FILE={toolchain_file}" '
@@ -355,7 +365,8 @@ class Ros2KiltedConan(ConanFile):
 
         py_ver = str(self.info.options.python_version)
         pyenv = PyEnv(self, folder=self.package_folder, py_version=py_ver)
-        pyenv.install(list(PIP_BUILD_TOOLS))
+        # Only runtime tools: consumers don't need the build/lint tooling used to compile ROS.
+        pyenv.install(list(PIP_RUNTIME_TOOLS))
 
         if str(self.info.settings.os) == "Windows":
             scripts_dir = os.path.join(self.package_folder, "Scripts")
