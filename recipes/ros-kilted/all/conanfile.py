@@ -355,8 +355,6 @@ class Ros2KiltedConan(ConanFile):
             raise ConanException(f"No merged install found at {inst}")
         copy(self, "*", src=inst, dst=self.package_folder)
 
-        if str(self.settings.os) == "Windows":
-            return
         # Install pip runtime tools at build time so the package is hermetic:
         # no network access or venv creation needed at install time.
         pyenv = PyEnv(self, py_version=str(self.options.python_version))
@@ -366,47 +364,37 @@ class Ros2KiltedConan(ConanFile):
             f'"{pyenv.env_exe}" -m pip install --quiet --disable-pip-version-check '
             f'--no-warn-script-location --prefix "{pkg}" {pkgs}'
         )
-        new_shebang = b"#!/usr/bin/env python3\n"
-        bin_dir = os.path.join(pkg, "bin")
-        for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
-            path = os.path.join(bin_dir, name)
-            if not os.path.isfile(path) or os.path.islink(path):
-                continue
-            with open(path, "rb") as f:
-                data = f.read()
-            head, sep, rest = data.partition(b"\n")
-            if sep and head.startswith(b"#!") and b"python" in head:
-                with open(path, "wb") as f:
-                    f.write(new_shebang + rest)
+        if str(self.settings.os) == "Windows":
+            # pip generates binary .exe launchers with the build-time Python path baked in;
+            # replace them with .cmd shims that resolve python from PATH instead.
+            scripts_dir = os.path.join(pkg, "Scripts")
+            if os.path.isdir(scripts_dir):
+                for name in os.listdir(scripts_dir):
+                    if not name.endswith("-script.py"):
+                        continue
+                    entry = name[:-len("-script.py")]
+                    save(self, os.path.join(scripts_dir, entry + ".cmd"),
+                         "@echo off\r\npython \"%~dp0%~n0-script.py\" %*\r\n")
+                    exe = os.path.join(scripts_dir, entry + ".exe")
+                    if os.path.isfile(exe):
+                        os.remove(exe)
+        else:
+            new_shebang = b"#!/usr/bin/env python3\n"
+            bin_dir = os.path.join(pkg, "bin")
+            for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
+                path = os.path.join(bin_dir, name)
+                if not os.path.isfile(path) or os.path.islink(path):
+                    continue
+                with open(path, "rb") as f:
+                    data = f.read()
+                head, sep, rest = data.partition(b"\n")
+                if sep and head.startswith(b"#!") and b"python" in head:
+                    with open(path, "wb") as f:
+                        f.write(new_shebang + rest)
 
     def finalize(self):
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
-
-        py_ver = str(self.info.options.python_version)
-        pyenv = PyEnv(self, folder=self.package_folder, py_version=py_ver)
-
-        if str(self.info.settings.os) != "Windows":
-            return
-        # Windows: pip's .exe launchers embed the build-time Python path so we
-        # can't fix them as text; recreate as .cmd shims using the consumer's Python.
-        pyenv.install(list(PIP_RUNTIME_TOOLS))
-        scripts_dir = os.path.join(self.package_folder, "Scripts")
-        if not os.path.isdir(scripts_dir):
-            return
-        cmd_template = (
-            "@echo off\r\n"
-            f'"{pyenv.env_exe}" "%~dp0%~n0-script.py" %*\r\n'
-        )
-        for name in os.listdir(scripts_dir):
-            if not name.endswith("-script.py"):
-                continue
-            entry = name[:-len("-script.py")]
-            save(self, os.path.join(scripts_dir, entry + ".cmd"), cmd_template)
-            # PATHEXT prefers .EXE over .CMD; drop the broken stub so
-            # cmd.exe resolves `ros2` to our shim instead.
-            exe = os.path.join(scripts_dir, entry + ".exe")
-            if os.path.isfile(exe):
-                os.remove(exe)
+        PyEnv(self, folder=self.package_folder, py_version=str(self.info.options.python_version))
 
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
