@@ -6,7 +6,7 @@ from conan import ConanFile
 from conan.errors import ConanException
 from conan.tools.build import check_min_cppstd
 from conan.tools.cmake import CMakeDeps, CMakeToolchain
-from conan.tools.env import VirtualBuildEnv
+from conan.tools.env import Environment, VirtualBuildEnv
 from conan.tools.files import (
     apply_conandata_patches,
     copy,
@@ -305,17 +305,14 @@ class Ros2KiltedConan(ConanFile):
         # Always clone desktop_full (superset); build() filters by variant.
         repos_path = os.path.join(self.source_folder, "sources.repos")
         rig_exe = os.path.join(boot.bin_path, "rosinstall_generator")
-        prev_url = os.environ.get("ROSDISTRO_INDEX_URL")
-        os.environ["ROSDISTRO_INDEX_URL"] = pathlib.Path(rosdistro_dir, "index-v4.yaml").as_uri()
-        try:
-            with open(repos_path, "w", encoding="utf-8") as fh:
+        rosdistro_env = Environment()
+        rosdistro_env.define("ROSDISTRO_INDEX_URL",
+                             pathlib.Path(rosdistro_dir, "index-v4.yaml").as_uri())
+        with open(repos_path, "w", encoding="utf-8") as fh:
+            with rosdistro_env.vars(self).apply():
                 self.run(
                     f'"{rig_exe}" desktop_full --rosdistro kilted --deps --format repos',
                     stdout=fh, cwd=self.source_folder)
-        finally:
-            os.environ.pop("ROSDISTRO_INDEX_URL")
-            if prev_url is not None:
-                os.environ["ROSDISTRO_INDEX_URL"] = prev_url
         src_dir = os.path.join(self.source_folder, "src")
         if os.path.isdir(src_dir):
             rmdir(self, src_dir)
