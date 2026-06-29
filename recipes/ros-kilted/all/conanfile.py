@@ -384,7 +384,7 @@ class Ros2KiltedConan(ConanFile):
                     os.remove(exe)
             return
 
-        new_shebang = f"#!{pyenv.env_exe}\n".encode("utf-8")
+        new_shebang = b"#!/usr/bin/env python3\n"
         bin_dir = os.path.join(self.package_folder, "bin")
         for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
             path = os.path.join(bin_dir, name)
@@ -450,6 +450,8 @@ class Ros2KiltedConan(ConanFile):
 
         pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
         py_exe = pyenv.env_exe
+        for env in (self.buildenv_info, self.runenv_info):
+            env.prepend_path("PATH", pyenv.bin_path)
         self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
         self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
         self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
