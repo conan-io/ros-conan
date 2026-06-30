@@ -112,7 +112,7 @@ class Ros2KiltedConan(ConanFile):
     package_type = "shared-library"
     license = "Apache-2.0"
     url = "https://docs.ros.org/en/kilted/"
-    description = "ROS 2 Kilted merged install from source, dependencies via Conan + PyEnv."
+    description = "ROS 2 Kilted merged install from source."
     settings = "os", "compiler", "build_type", "arch"
     options = {
         "variant": ["core", "base", "desktop", "desktop_full"],
@@ -213,14 +213,46 @@ class Ros2KiltedConan(ConanFile):
 
     def build_requirements(self):
         self.tool_requires("cmake/3.28.5")
+        # Same interpreter that runs at runtime (the host requires), pinned to the exact
+        # version it resolved to via <host_version>. Used to build the colcon venv so build
+        # and runtime share one Python (same patch), no uv involved.
+        self.tool_requires("cpython-portable/<host_version>")
         # TODO: cppcheck/2.15.0 has no prebuilt binary for Windows/MSVC profile.
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
 
+    def _build_python(self):
+        # Interpreter from the build-context cpython-portable (tool_requires). Layout matches
+        # the build machine OS (settings_build), not the target.
+        root = self.dependencies.build["cpython-portable"].package_folder
+        if str(self.settings_build.os) == "Windows":
+            return os.path.join(root, "python.exe").replace("\\", "/")
+        return os.path.join(root, "bin", "python3").replace("\\", "/")
+
     def generate(self):
-        pyenv = PyEnv(self, py_version=str(self.options.python_version))
-        pyenv.install(list(PIP_BUILD_TOOLS))
+        # Build venv layered over the cpython-portable interpreter (same Python that runs at
+        # runtime). venv only holds the build tools; headers/libpython resolve via the venv's
+        # base prefix, exactly as the previous uv venv did.
+        venv_dir = os.path.join(self.build_folder, "build_venv")
+        if not os.path.exists(venv_dir):
+            self.run(f'"{self._build_python()}" -m venv "{venv_dir}"')
+        if str(self.settings_build.os) == "Windows":
+            venv_bin = os.path.join(venv_dir, "Scripts")
+            py_exe = os.path.join(venv_bin, "python.exe")
+        else:
+            venv_bin = os.path.join(venv_dir, "bin")
+            py_exe = os.path.join(venv_bin, "python")
+        venv_bin = venv_bin.replace("\\", "/")
+        py_exe = py_exe.replace("\\", "/")
+        py_root = venv_dir.replace("\\", "/")
+
+        def _pip_install(pkgs):
+            quoted = " ".join(f'"{p}"' for p in pkgs)
+            self.run(f'"{py_exe}" -m pip install --disable-pip-version-check '
+                     f'--no-warn-script-location {quoted}')
+
+        _pip_install(PIP_BUILD_TOOLS)
         # ament_cmake_core imports ament_package at CMake configure time, but colcon schedules
         # both packages in the same parallel batch so ament_cmake_core runs first. Pre-install
         # from source (vcstool unpacked it under src/ament/ament_package) so the first cmake
@@ -228,15 +260,11 @@ class Ros2KiltedConan(ConanFile):
         ament_package_src = os.path.join(
             self.source_folder, "src", "ament", "ament_package")
         if os.path.isdir(ament_package_src):
-            pyenv.install([ament_package_src])
-        pyenv.generate()
+            _pip_install([ament_package_src])
         # Colcon must not descend into site-packages under this venv.
-        save(self, os.path.join(pyenv.env_dir, "COLCON_IGNORE"), "")
+        save(self, os.path.join(venv_dir, "COLCON_IGNORE"), "")
 
         install_root = os.path.join(self.build_folder, "install")
-
-        py_exe = pyenv.env_exe.replace("\\", "/")
-        py_root = pyenv.env_dir.replace("\\", "/")
 
         tc = CMakeToolchain(self)
         # asio 1.28.1 and FastDDS 3.2.3 trip on C++23 rules enforced by Clang 15+/Apple Clang 21.
@@ -280,6 +308,9 @@ class Ros2KiltedConan(ConanFile):
         if is_msvc(self):
             VCVars(self).generate()
         vbe = VirtualBuildEnv(self)
+        # Build venv bin first on PATH so colcon and 'python' resolve to it (it holds the
+        # build tools), ahead of the bare cpython-portable interpreter from tool_requires.
+        vbe.environment().prepend_path("PATH", venv_bin)
         vbe.environment().define("ROS_DISTRO", "kilted")
         py_ver = str(self.options.python_version)
         vbe.environment().prepend_path("PYTHONPATH",
@@ -364,11 +395,10 @@ class Ros2KiltedConan(ConanFile):
 
         # Install pip runtime tools at build time so the package is hermetic:
         # no network access or venv creation needed at install time.
-        pyenv = PyEnv(self, py_version=str(self.options.python_version))
         pkg = self.package_folder
         pkgs = " ".join(f'"{p}"' for p in PIP_RUNTIME_TOOLS)
         self.run(
-            f'"{pyenv.env_exe}" -m pip install --quiet --disable-pip-version-check '
+            f'"{self._build_python()}" -m pip install --quiet --disable-pip-version-check '
             f'--ignore-installed --no-warn-script-location --prefix "{pkg}" {pkgs}'
         )
         if str(self.settings.os) == "Windows":
