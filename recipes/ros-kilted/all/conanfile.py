@@ -152,6 +152,13 @@ class Ros2KiltedConan(ConanFile):
         self.folders.generators = os.path.join(ws, "conan")
 
     def requirements(self):
+        # Runtime/build Python interpreter from the graph (python-build-standalone, the same
+        # source uv uses). Maps the python_version minor to its only available patch range,
+        # e.g. "3.12" -> cpython-portable/[>=3.12 <3.13]. VirtualRunEnv exposes it on PATH so
+        # the '#!/usr/bin/env python3' shebangs resolve to it on every OS.
+        py = str(self.options.python_version)
+        next_minor = f"{py.split('.')[0]}.{int(py.split('.')[1]) + 1}"
+        self.requires(f"cpython-portable/[>={py} <{next_minor}]")
         self.requires("openssl/[>=3.3 <4]", transitive_libs=True)
         self.requires("zlib/1.3.1")
         self.requires("fmt/10.2.1")
@@ -392,14 +399,6 @@ class Ros2KiltedConan(ConanFile):
                     with open(path, "wb") as f:
                         f.write(new_shebang + rest)
 
-    def finalize(self):
-        copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
-
-        if str(self.info.settings.os) != "Windows":
-            return
-        # Windows: recreate the venv with the consumer's Python so .cmd shims resolve it.
-        PyEnv(self, folder=self.package_folder, py_version=str(self.info.options.python_version))
-
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
         p = self.package_folder
@@ -451,13 +450,20 @@ class Ros2KiltedConan(ConanFile):
                     self.runenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
                     self.buildenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
 
+        # Interpreter from the cpython-portable dependency. Put its bindir on PATH (so the
+        # '#!/usr/bin/env python3' shebangs and Windows .cmd shims resolve to it) and point
+        # colcon/ament at it explicitly for deterministic Python selection.
+        cpy_root = self.dependencies["cpython-portable"].package_folder
         if str(self.settings.os) == "Windows":
-            pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
-            py_exe = pyenv.env_exe
-            for env in (self.buildenv_info, self.runenv_info):
-                env.prepend_path("PATH", pyenv.bin_path)
-                env.define("COLCON_PYTHON_EXECUTABLE", py_exe)
-                env.define("AMENT_PYTHON_EXECUTABLE", py_exe)
+            cpy_bin = cpy_root
+            cpy_exe = os.path.join(cpy_root, "python.exe")
+        else:
+            cpy_bin = os.path.join(cpy_root, "bin")
+            cpy_exe = os.path.join(cpy_bin, "python3")
+        for env in (self.buildenv_info, self.runenv_info):
+            env.prepend_path("PATH", cpy_bin)
+            env.define("COLCON_PYTHON_EXECUTABLE", cpy_exe)
+            env.define("AMENT_PYTHON_EXECUTABLE", cpy_exe)
 
         self.conf_info.define_path("user.ros2:install_prefix", p)
         setup = os.path.join(p, "setup")

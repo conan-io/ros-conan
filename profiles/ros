@@ -3,8 +3,9 @@ include(default)
 [settings]
 compiler.cppstd=17
 
-[options]
-ros-kilted/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
+# Base profile: python_version defaults to the recipe value (3.12). Use a
+# profiles/ros-py3XX profile to pin a specific interpreter; the recipe derives
+# cpython-portable from it, so this single option fixes the whole Python toolchain.
 
 [tool_requires]
 cmake/3.29.3

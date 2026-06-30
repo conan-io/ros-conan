@@ -1,0 +1,4 @@
+include(ros)
+
+[options]
+ros-kilted/*:python_version=3.13
