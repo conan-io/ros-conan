@@ -3,9 +3,11 @@ include(default)
 [settings]
 compiler.cppstd=17
 
-# Base profile: python_version defaults to the recipe value (3.12). Use a
-# profiles/ros-py3XX profile to pin a specific interpreter; the recipe derives
-# cpython-portable from it, so this single option fixes the whole Python toolchain.
+# python_version tracks the Python running Conan (i.e. the consumer's interpreter).
+# Override with profiles/ros-py3XX to pin a specific version explicitly.
+
+[options]
+ros-kilted/*:python_version={{ platform.python_version_tuple()[0] }}.{{ platform.python_version_tuple()[1] }}
 
 [tool_requires]
 cmake/3.29.3

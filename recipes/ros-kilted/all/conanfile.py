@@ -152,13 +152,6 @@ class Ros2KiltedConan(ConanFile):
         self.folders.generators = os.path.join(ws, "conan")
 
     def requirements(self):
-        # Runtime/build Python interpreter from the graph (python-build-standalone, the same
-        # source uv uses). Maps the python_version minor to its only available patch range,
-        # e.g. "3.12" -> cpython-portable/[>=3.12 <3.13]. VirtualRunEnv exposes it on PATH so
-        # the '#!/usr/bin/env python3' shebangs resolve to it on every OS.
-        py = str(self.options.python_version)
-        next_minor = f"{py.split('.')[0]}.{int(py.split('.')[1]) + 1}"
-        self.requires(f"cpython-portable/[>={py} <{next_minor}]")
         self.requires("openssl/[>=3.3 <4]", transitive_libs=True)
         self.requires("zlib/1.3.1")
         self.requires("fmt/10.2.1")
@@ -213,10 +206,9 @@ class Ros2KiltedConan(ConanFile):
 
     def build_requirements(self):
         self.tool_requires("cmake/3.28.5")
-        # Same interpreter that runs at runtime (the host requires), pinned to the exact
-        # version it resolved to via <host_version>. Used to build the colcon venv so build
-        # and runtime share one Python (same patch), no uv involved.
-        self.tool_requires("cpython-portable/<host_version>")
+        py = str(self.options.python_version)
+        next_minor = f"{py.split('.')[0]}.{int(py.split('.')[1]) + 1}"
+        self.tool_requires(f"cpython-portable/[>={py} <{next_minor}]")
         # TODO: cppcheck/2.15.0 has no prebuilt binary for Windows/MSVC profile.
         self.tool_requires("uncrustify/0.78.1")
         if self.settings.os == "Windows":
@@ -479,21 +471,6 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(qt_plugins):
                     self.runenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
                     self.buildenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
-
-        # Interpreter from the cpython-portable dependency. Put its bindir on PATH (so the
-        # '#!/usr/bin/env python3' shebangs and Windows .cmd shims resolve to it) and point
-        # colcon/ament at it explicitly for deterministic Python selection.
-        cpy_root = self.dependencies["cpython-portable"].package_folder
-        if str(self.settings.os) == "Windows":
-            cpy_bin = cpy_root
-            cpy_exe = os.path.join(cpy_root, "python.exe")
-        else:
-            cpy_bin = os.path.join(cpy_root, "bin")
-            cpy_exe = os.path.join(cpy_bin, "python3")
-        for env in (self.buildenv_info, self.runenv_info):
-            env.prepend_path("PATH", cpy_bin)
-            env.define("COLCON_PYTHON_EXECUTABLE", cpy_exe)
-            env.define("AMENT_PYTHON_EXECUTABLE", cpy_exe)
 
         self.conf_info.define_path("user.ros2:install_prefix", p)
         setup = os.path.join(p, "setup")
