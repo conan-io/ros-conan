@@ -29,28 +29,13 @@ run("conan install --profile ../../profiles/ros --build=missing")
 
 if platform.system() == "Windows":
     cmake_py = subprocess.list2cmdline([f"-DPython3_EXECUTABLE={sys.executable}"])
-    # TEMP DEBUG: dump the environment colcon will run under (remove once consumer_colcon is fixed)
     run(
         r"call .\build\generators\conanrosenv.bat && "
-        r"where colcon python python3 & "
-        r"echo AMENT=%AMENT_PREFIX_PATH% & echo CMAKE=%CMAKE_PREFIX_PATH% & "
-        r"echo COLCON_PY=%COLCON_PYTHON_EXECUTABLE% & echo AMENT_PY=%AMENT_PYTHON_EXECUTABLE%"
-    )
-    run(
-        r"call .\build\generators\conanrosenv.bat && "
-        f"colcon build --event-handlers console_direct+ --cmake-args {cmake_py}"
+        f"colcon build --event-handlers console_cohesion+ --cmake-args {cmake_py}"
     )
 else:
     cmake_py = f"-DPython3_EXECUTABLE={shlex.quote(sys.executable)}"
-    # TEMP DEBUG: dump the environment colcon will run under (remove once consumer_colcon is fixed)
-    run(
-        ". ./build/Release/generators/conanrosenv.sh && "
-        "which -a colcon python python3; "
-        "echo AMENT=$AMENT_PREFIX_PATH; echo CMAKE=$CMAKE_PREFIX_PATH; "
-        "echo COLCON_PY=$COLCON_PYTHON_EXECUTABLE; echo AMENT_PY=$AMENT_PYTHON_EXECUTABLE; "
-        "echo COLCON_HEAD=$(head -1 $(which colcon))"
-    )
     run(
         f". ./build/Release/generators/conanrosenv.sh && "
-        f"colcon build --event-handlers console_direct+ --cmake-args {cmake_py}"
+        f"colcon build --event-handlers console_cohesion+ --cmake-args {cmake_py}"
     )
