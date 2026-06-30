@@ -130,7 +130,7 @@ jobs:
         run: >
           conan install --requires=ros-kilted/2026.06.17
           --build=missing
-          --profile:all=profiles/ros-py312
+          --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
           --format=json --out-file=install_graph.json
 
@@ -145,7 +145,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: >
           conan test recipes/ros-kilted/all/test_package ros-kilted/2026.06.17
-          --profile:all=profiles/ros-py312
+          --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
 
       - name: Find and run examples
