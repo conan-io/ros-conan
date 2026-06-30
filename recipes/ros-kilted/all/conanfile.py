@@ -44,7 +44,7 @@ PIP_RUNTIME_TOOLS = (
     "catkin_pkg==1.0.0",
     "cryptography==41.0.7",
     "docutils==0.20.1",
-    "empy==3.3.4",
+    "empy>=4.0,<5",
     "fastjsonschema==2.19.0",
     "importlib-metadata==4.13.0",
     "lark==1.1.9",

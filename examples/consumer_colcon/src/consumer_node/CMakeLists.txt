@@ -6,10 +6,6 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 
 find_package(ament_cmake REQUIRED)
-# TEMP DEBUG: what does consumer_node actually see for finding dummy_lib?
-message(STATUS "DBG AMENT_PREFIX_PATH(env)=$ENV{AMENT_PREFIX_PATH}")
-message(STATUS "DBG CMAKE_PREFIX_PATH(env)=$ENV{CMAKE_PREFIX_PATH}")
-message(STATUS "DBG CMAKE_PREFIX_PATH(var)=${CMAKE_PREFIX_PATH}")
 find_package(dummy_lib REQUIRED)
 find_package(rclcpp REQUIRED)
 
