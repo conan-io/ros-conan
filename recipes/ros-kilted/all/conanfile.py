@@ -425,8 +425,8 @@ class Ros2KiltedConan(ConanFile):
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
         lib_path = os.path.join(p, "lib")
-        self.runenv_info.prepend_path("LD_LIBRARY_PATH", lib_path)
-        self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", lib_path)
+        # self.runenv_info.prepend_path("LD_LIBRARY_PATH", lib_path)
+        # self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", lib_path)
 
         python_sites = [os.path.join(p, "Lib", "site-packages")] + sorted(
             glob.glob(os.path.join(p, "lib", "python*", "site-packages")))
