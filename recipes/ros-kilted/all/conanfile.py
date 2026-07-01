@@ -54,10 +54,6 @@ PIP_RUNTIME_TOOLS = (
     "pathspec==0.12.1",
     "pluggy==1.4.0",
     "psutil==5.9.8",
-    "pydot==1.4.2",
-    "pyparsing==3.1.1",
-    # PyQt5 provides the Python Qt bindings for rqt; the Conan qt/* dep covers the C++ side.
-    "PyQt5==5.15.11",
     "python-dateutil==2.8.2",
     "PyYAML==6.0.1",
     "setuptools==68.1.2",
@@ -100,7 +96,14 @@ _PIP_BUILD_ONLY = (
     "yamllint==1.33.0",
 )
 
-PIP_BUILD_TOOLS = PIP_RUNTIME_TOOLS + _PIP_BUILD_ONLY
+# PyQt5 (rqt's Qt bindings), pydot and pyparsing (pydot's own dependency, used by
+# qt_dotgraph/rqt_graph) are only needed for desktop/desktop_full, matching the
+# conditional qt/* C++ requirement below.
+_PIP_DESKTOP_ONLY = (
+    "PyQt5==5.15.11",
+    "pydot==1.4.2",
+    "pyparsing==3.1.1",
+)
 
 
 class Ros2KiltedConan(ConanFile):
@@ -211,9 +214,14 @@ class Ros2KiltedConan(ConanFile):
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
 
+    def _pip_runtime_tools(self):
+        if str(self.options.variant) in ("desktop", "desktop_full"):
+            return PIP_RUNTIME_TOOLS + _PIP_DESKTOP_ONLY
+        return PIP_RUNTIME_TOOLS
+
     def generate(self):
         pyenv = PyEnv(self, py_version=str(self.options.python_version))
-        pyenv.install(list(PIP_BUILD_TOOLS))
+        pyenv.install(list(self._pip_runtime_tools() + _PIP_BUILD_ONLY))
         # ament_cmake_core imports ament_package at CMake configure time, but colcon schedules
         # both packages in the same parallel batch so ament_cmake_core runs first. Pre-install
         # from source (vcstool unpacked it under src/ament/ament_package) so the first cmake
@@ -354,13 +362,24 @@ class Ros2KiltedConan(ConanFile):
         if not os.path.isdir(inst):
             raise ConanException(f"No merged install found at {inst}")
         copy(self, "*", src=inst, dst=self.package_folder)
-
-        # Install pip runtime tools at build time so the package is hermetic:
-        # no network access or venv creation needed at install time. Reuses the
-        # build venv from generate() (same folder/py_version -> same env dir).
-        pyenv = PyEnv(self, py_version=str(self.options.python_version))
         pkg = self.package_folder
-        pkgs = " ".join(f'"{p}"' for p in PIP_RUNTIME_TOOLS)
+
+        if self.settings.os == "Macos":
+            # ament bakes a wrong rpath into ROS's own .so; fix before pip adds wheels below.
+            lib_dir = os.path.join(pkg, "lib")
+            for root, _, files in os.walk(lib_dir):
+                for name in files:
+                    if not name.endswith(".so"):
+                        continue
+                    rel = os.path.relpath(lib_dir, root)
+                    so_path = os.path.join(root, name)
+                    self.run(f'install_name_tool -add_rpath "@loader_path/{rel}" '
+                             f'"{so_path}"', ignore_errors=True)
+                    # re-sign: install_name_tool invalidates it, unsigned = SIGKILL on arm64.
+                    self.run(f'codesign --force -s - "{so_path}"', ignore_errors=True)
+
+        pyenv = PyEnv(self, py_version=str(self.options.python_version))
+        pkgs = " ".join(f'"{p}"' for p in self._pip_runtime_tools())
         self.run(
             f'"{pyenv.env_exe}" -m pip install --quiet --disable-pip-version-check '
             f'--ignore-installed --no-warn-script-location --prefix "{pkg}" {pkgs}'
@@ -393,6 +412,9 @@ class Ros2KiltedConan(ConanFile):
                     with open(path, "wb") as f:
                         f.write(new_shebang + rest)
 
+    def finalize(self):
+        copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
+
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
         p = self.package_folder
@@ -402,6 +424,9 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
+        lib_path = os.path.join(p, "lib")
+        self.runenv_info.prepend_path("LD_LIBRARY_PATH", lib_path)
+        self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", lib_path)
 
         python_sites = [os.path.join(p, "Lib", "site-packages")] + sorted(
             glob.glob(os.path.join(p, "lib", "python*", "site-packages")))
