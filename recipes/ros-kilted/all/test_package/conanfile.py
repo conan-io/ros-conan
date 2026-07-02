@@ -34,3 +34,4 @@ class TestPackageConan(ConanFile):
         self.run("ros2 topic list", env="conanrun")
         self.run("ros2 service list", env="conanrun")
         self.run("ros2 action list", env="conanrun")
+        self.run("colcon -h", env="conanrun")
