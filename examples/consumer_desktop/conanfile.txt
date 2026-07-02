@@ -1,0 +1,11 @@
+[requires]
+ros-kilted/2026.06.17
+
+[options]
+ros-kilted/2026.06.17:variant=desktop
+
+[generators]
+VirtualRunEnv
+
+[layout]
+cmake_layout

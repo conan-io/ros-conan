@@ -35,12 +35,15 @@ jobs:
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
             variant: desktop
+            run_examples: true
           - runner: windows-2022
             conan_home: C:/.c2
             variant: desktop
+            run_examples: true
           - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: desktop
+            run_examples: true
 
     runs-on: ${{ matrix.runner }}
     env:
