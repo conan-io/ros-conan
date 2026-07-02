@@ -7,7 +7,7 @@ compiler.cppstd=17
 # Override with profiles/ros-py3XX to pin a specific version explicitly.
 
 [options]
-ros-kilted/*:python_version={{ platform.python_version_tuple()[0] }}.{{ platform.python_version_tuple()[1] }}
+ros-kilted/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
 
 [tool_requires]
 cmake/3.29.3
