@@ -153,9 +153,13 @@ jobs:
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
+        run: |
           # unset: colcon-powershell misdetects itself as primary shell otherwise
-          PSModulePath: ""
-        run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
+          # (real PowerShell on Windows needs this var, so only unset elsewhere)
+          if [ "${{ runner.os }}" != "Windows" ]; then
+            unset PSModulePath
+          fi
+          python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
       - name: Upload pose_estimation example deps built from source to Artifactory
         if: always() && matrix.run_examples && hashFiles('examples/pose_estimation/install_graph.json') != ''
