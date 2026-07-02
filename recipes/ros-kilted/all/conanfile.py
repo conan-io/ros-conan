@@ -1,3 +1,4 @@
+import configparser
 import glob
 import os
 import pathlib
@@ -385,19 +386,41 @@ class Ros2KiltedConan(ConanFile):
             f'--ignore-installed --no-warn-script-location --prefix "{pkg}" {pkgs}'
         )
         if str(self.settings.os) == "Windows":
-            # pip generates binary .exe launchers with the build-time Python path baked in;
-            # replace them with .cmd shims that resolve python from PATH instead.
+            # pip's .exe launchers bake in the build-time Python path, which stops
+            # existing once the build venv is gone. Most of them (colcon, catkin_pkg,
+            # pytest, ...) don't get a "-script.py" companion to key a fix off of, so
+            # read the real entry point from entry_points.txt and replace every
+            # console-script .exe with a .cmd that resolves "python" from PATH instead.
+            entry_points = {}
+            for ep_file in glob.glob(os.path.join(pkg, "Lib", "site-packages", "*.dist-info",
+                                                   "entry_points.txt")):
+                parser = configparser.ConfigParser()
+                parser.optionxform = str
+                parser.read(ep_file)
+                if parser.has_section("console_scripts"):
+                    for script_name, target in parser.items("console_scripts"):
+                        entry_points[script_name] = target.split()[0]
+
             scripts_dir = os.path.join(pkg, "Scripts")
             if os.path.isdir(scripts_dir):
                 for name in os.listdir(scripts_dir):
-                    if not name.endswith("-script.py"):
+                    if not name.endswith(".exe"):
                         continue
-                    entry = name[:-len("-script.py")]
+                    entry = name[:-len(".exe")]
+                    target = entry_points.get(entry)
+                    if not target:
+                        continue
+                    module, _, attr = target.partition(":")
+                    py_code = f"import sys, importlib; f = importlib.import_module('{module}'); "
+                    for part in (attr or "main").split("."):
+                        py_code += f"f = getattr(f, '{part}'); "
+                    py_code += "sys.exit(f())"
                     save(self, os.path.join(scripts_dir, entry + ".cmd"),
-                         "@echo off\r\npython \"%~dp0%~n0-script.py\" %*\r\n")
-                    exe = os.path.join(scripts_dir, entry + ".exe")
-                    if os.path.isfile(exe):
-                        os.remove(exe)
+                         f'@echo off\r\npython -c "{py_code}" %*\r\n')
+                    os.remove(os.path.join(scripts_dir, name))
+                    script_py = os.path.join(scripts_dir, entry + "-script.py")
+                    if os.path.isfile(script_py):
+                        os.remove(script_py)
         else:
             new_shebang = b"#!/usr/bin/env python3\n"
             bin_dir = os.path.join(pkg, "bin")
