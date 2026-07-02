@@ -153,9 +153,6 @@ jobs:
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
-          # TEMP debug: print colcon's resolved CMAKE_PREFIX_PATH on the real runner
-          # to diagnose why "consumer_node" can't find "dummy_lib" on ubuntu-latest.
-          COLCON_TRACE: "1"
         run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
       - name: Upload pose_estimation example deps built from source to Artifactory
