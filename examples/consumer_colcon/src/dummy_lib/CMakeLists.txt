@@ -7,6 +7,11 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 
+# TEMP debug: same probe as consumer_node's CMakeLists.txt, to see whether the
+# stray ';' in CMAKE_PREFIX_PATH is already present before dummy_lib even builds.
+message(STATUS "[DEBUG] CMAKE_PREFIX_PATH (cmake var) = ${CMAKE_PREFIX_PATH}")
+message(STATUS "[DEBUG] CMAKE_PREFIX_PATH (env var)   = $ENV{CMAKE_PREFIX_PATH}")
+
 add_library(${PROJECT_NAME} STATIC src/print.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
