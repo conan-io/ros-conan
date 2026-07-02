@@ -3,9 +3,6 @@ include(default)
 [settings]
 compiler.cppstd=17
 
-# python_version tracks the Python running Conan (i.e. the consumer's interpreter).
-# Override with profiles/ros-py3XX to pin a specific version explicitly.
-
 [options]
 ros-kilted/*:python_version={{ ".".join(platform.python_version_tuple()[:2]) }}
 
