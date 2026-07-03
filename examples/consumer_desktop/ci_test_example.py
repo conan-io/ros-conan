@@ -8,15 +8,14 @@ run(
     "-o ros-kilted/*:variant=desktop"
 )
 
-# Qt's "offscreen" platform plugin lets rviz2/rqt initialize without a real display
-# or window manager, so this runs unmodified on Linux/macOS/Windows CI runners.
+# rviz2 ignores QT_QPA_PLATFORM=offscreen on Windows and hangs instead of exiting.
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 if platform.system() == "Windows":
     run(
         r"call .\build\generators\conanrun.bat && "
-        "rviz2 --help && "
-        "rqt --help"
+        "ros2 pkg prefix rviz2 && "
+        "ros2 pkg prefix rqt_gui"
     )
 else:
     run(

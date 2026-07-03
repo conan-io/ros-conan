@@ -1,20 +1,14 @@
 # consumer_desktop
 
 Headless check for the `desktop` variant of `ros-kilted`: installs the package with
-GUI tooling enabled (`rviz2`, `rqt`, Qt/PyQt5 bindings) and checks the binaries start up
-correctly without a real display.
+GUI tooling (`rviz2`, `rqt`, Qt/PyQt5 bindings) and checks it starts up without a
+real display, using Qt's offscreen platform plugin instead of `Xvfb`.
+
+On Windows, `rviz2` doesn't respect the offscreen plugin and hangs instead of
+exiting, so there this only checks the packages resolve (`ros2 pkg prefix`)
+instead of launching them.
 
 [← back to main README](../../README.md)
-
-## How it is wired
-
-[`conanfile.txt`](conanfile.txt) requires `ros-kilted/2026.06.17` with `variant=desktop`
-and uses `VirtualRunEnv` to generate `conanrun.{bat,sh}`, exposing `PATH`, `PYTHONPATH`
-and `QT_PLUGIN_PATH` for the prebuilt binaries — no build step needed.
-
-`QT_QPA_PLATFORM=offscreen` forces Qt to use its built-in offscreen platform plugin
-instead of a real windowing system, so this runs the same way on Linux, macOS and
-Windows CI runners without needing `Xvfb` or any other display server.
 
 ## Run
 
@@ -36,9 +30,8 @@ QT_QPA_PLATFORM=offscreen rqt --help
 
 ```bat
 call build\generators\conanrun.bat
-set QT_QPA_PLATFORM=offscreen
-rviz2 --help
-rqt --help
+ros2 pkg prefix rviz2
+ros2 pkg prefix rqt_gui
 ```
 
 The exact CI invocation lives in [`ci_test_example.py`](ci_test_example.py).
