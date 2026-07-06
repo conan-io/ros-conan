@@ -196,13 +196,13 @@ class Ros2KiltedConan(ConanFile):
             # sdl2_vendor calls find_package(SDL2) before its ExternalProject; CMakeDeps
             # satisfies the check so the ExternalProject build is skipped entirely.
             self.requires("sdl/2.32.10")
-            self.requires("qt/5.15.18", options={"shared": True})
+            self.requires("qt/5.15.19", options={"shared": True})
             # OGRE's bundled glew.h includes <GL/glu.h>; qt/opencv bring opengl/system but not
             # GLU. glu/system installs libglu1-mesa-dev on Linux, is a no-op on macOS (part of
             # the OpenGL framework), and exposes glu32 on Windows.
             self.requires("glu/system")
             if self.settings.os == "Linux":
-                # qt/5.15.18 pins xkbcommon/1.5.0; opencv (with_wayland=True) pins 1.6.0.
+                # qt/5.15.19 pins xkbcommon/1.5.0; opencv (with_wayland=True) pins 1.6.0.
                 # Both use the same targets so forcing 1.6.0 is safe.
                 self.requires("xkbcommon/1.6.0", override=True)
             self.requires("pcl/1.14.1")
