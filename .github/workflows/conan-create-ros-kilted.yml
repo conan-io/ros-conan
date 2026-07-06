@@ -93,16 +93,15 @@ jobs:
         shell: bash
         run: echo "$(dirname '${{ steps.setup_python.outputs.python-path }}')" >> "$GITHUB_PATH"
 
-      # windows-2022 runners are Azure VMs with Service Fabric pre-installed. Its bin directory
-      # appears before C:\Windows\System32 in PATH, so the Windows loader picks up Service
-      # Fabric's incompatible msvcp140.dll instead of the System32 copy. That ABI mismatch
-      # causes an access violation (0xC0000005) inside rcl_init() on any ros2 command startup.
-      # Strip Service Fabric paths from PATH so the loader finds the correct MSVC runtime DLLs.
-      - name: Remove Service Fabric from PATH (Windows)
+      # - Service Fabric's bin dir shadows System32's msvcp140.dll, causing an access
+      #   violation (0xC0000005) inside rcl_init() on any ros2 command startup.
+      # - Qt requires no sh.exe (e.g. from Git) on PATH when building on Windows:
+      #   https://doc.qt.io/archives/qt-5.15/windows-building.html (Step 3)
+      - name: Clean up PATH (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $path = ($env:PATH -split ';') | Where-Object { $_ -notmatch 'Service.Fabric' }
+          $path = ($env:PATH -split ';') | Where-Object { $_ -notmatch 'Service.Fabric' -and $_ -notmatch 'Git\\usr\\bin' }
           "PATH=$($path -join ';')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install latest Conan
