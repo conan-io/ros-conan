@@ -90,7 +90,7 @@ pinned to. The Conan version `YYYY.MM.DD` maps 1:1 to the rosdistro tag
 | [`consumer_cmake`](examples/consumer_cmake/readme.md)         | Pure-CMake consumer using `rclcpp` via `CMakeDeps`, no `colcon` needed.     |
 | [`consumer_colcon`](examples/consumer_colcon/readme.md)       | `colcon` workspace consuming the ROS runtime from Conan via `ROSEnv`.       |
 | [`pose_estimation`](examples/pose_estimation/readme.md)       | `ros-kilted` + `opencv` + `tensorflow-lite` publishing a skeleton overlay.  |
-| [`consumer_desktop`](examples/consumer_desktop/readme.md)     | Headless check of the `desktop` variant (`rviz2`, `rqt`) via offscreen Qt.  |
+| [`consumer_desktop`](examples/consumer_desktop/readme.md)     | Installs the `desktop` variant and runs its GUI tooling (`rviz2`, `rqt`).  |
 
 ## License
 
