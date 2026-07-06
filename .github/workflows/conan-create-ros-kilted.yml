@@ -101,7 +101,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $path = ($env:PATH -split ';') | Where-Object { $_ -notmatch 'Service.Fabric' -and $_ -notmatch 'Git\\usr\\bin' }
+          $path = ($env:PATH -split ';') | Where-Object { $_ -notmatch 'Service.Fabric' -and $_ -notmatch 'Git\\usr\\bin' -and $_ -notmatch 'Git\\bin' }
           "PATH=$($path -join ';')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install latest Conan
