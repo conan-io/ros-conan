@@ -46,3 +46,5 @@ patches:
       patch_description: rqt_gui_cpp - add '#include <unistd.h>' for getpid() in nodelet_plugin_provider.cpp; release/kilted/rqt_gui_cpp/1.9.2-1 predates upstream PR-#342 (backport of PR-#341), needed on macOS/AppleClang where unistd.h is not transitively included
     - patch_file: patches/0019-iceoryx-hoofs-stub-acl-on-linux.patch
       patch_description: iceoryx_hoofs - shadow Linux <sys/acl.h> with the same no-op stub iceoryx ships for mac/win (upstream issue-#1176).
+    - patch_file: patches/0020-python-qt-binding-default-pyqt-on-macos.patch
+      patch_description: python_qt_binding - default Qt binding order on macOS is pyside-only upstream, but this recipe only ships PyQt5 (no PySide2); add pyqt to the Darwin default order so rqt/rviz Python tools can find a binding

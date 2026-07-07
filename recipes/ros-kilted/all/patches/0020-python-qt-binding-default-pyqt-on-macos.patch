@@ -1,0 +1,10 @@
+--- src/python_qt_binding/src/python_qt_binding/binding_helper.py
++++ src/python_qt_binding/src/python_qt_binding/binding_helper.py
+@@ -53,6 +53,6 @@
+     # order of default bindings can be changed here
+     if platform.system() == 'Darwin':
+-        DEFAULT_BINDING_ORDER = ['pyside']
++        DEFAULT_BINDING_ORDER = ['pyqt', 'pyside']
+     else:
+         DEFAULT_BINDING_ORDER = ['pyqt', 'pyside']
+

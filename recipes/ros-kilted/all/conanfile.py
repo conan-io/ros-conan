@@ -491,6 +491,13 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(qt_plugins):
                     self.runenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
                     self.buildenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
+            # PyQt5 bundles its own private Qt5; prepend its plugins dir so rqt matches its own
+            # QtCore instead of the CCI build's (mixing the two crashes the platform plugin).
+            for site in python_sites:
+                pyqt5_plugins = os.path.join(site, "PyQt5", "Qt5", "plugins")
+                if os.path.isdir(pyqt5_plugins):
+                    self.runenv_info.prepend_path("QT_PLUGIN_PATH", pyqt5_plugins)
+                    self.buildenv_info.prepend_path("QT_PLUGIN_PATH", pyqt5_plugins)
 
         self.conf_info.define_path("user.ros2:install_prefix", p)
         setup = os.path.join(p, "setup")
