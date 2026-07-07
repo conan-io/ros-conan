@@ -47,4 +47,4 @@ patches:
     - patch_file: patches/0019-iceoryx-hoofs-stub-acl-on-linux.patch
       patch_description: iceoryx_hoofs - shadow Linux <sys/acl.h> with the same no-op stub iceoryx ships for mac/win (upstream issue-#1176).
     - patch_file: patches/0020-python-qt-binding-default-pyqt-on-macos.patch
-      patch_description: python_qt_binding - default Qt binding order on macOS is pyside-only upstream, but this recipe only ships PyQt5 (no PySide2); add pyqt to the Darwin default order so rqt/rviz Python tools can find a binding
+      patch_description: python_qt_binding - default Qt binding order on macOS is pyside-only upstream, but this recipe only ships PyQt5 (no PySide2); add pyqt to the Darwin default order, and force PyQt5's own bundled Qt5 plugins dir via QCoreApplication.setLibraryPaths() so rqt doesn't pick up the CCI qt build's (C++-only) platform plugin, which crashes when mixed with PyQt5's private QtCore
