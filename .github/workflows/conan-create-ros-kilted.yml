@@ -95,14 +95,14 @@ jobs:
 
       # - Service Fabric's bin dir shadows System32's msvcp140.dll, causing an access
       #   violation (0xC0000005) inside rcl_init() on any ros2 command startup.
-      # - Qt requires no sh.exe (e.g. from Git, or Strawberry Perl's bundled MinGW/MSYS
-      #   toolchain) on PATH when building on Windows:
-      #   https://doc.qt.io/archives/qt-5.15/windows-building.html (Step 3)
+      # - Qt requires no sh.exe on PATH when building on Windows (Git, Strawberry Perl,
+      #   MinGW/MSYS all ship one): https://doc.qt.io/archives/qt-5.15/windows-building.html
+      #   (Step 3). Drop any PATH entry that has one instead of naming vendors one by one.
       - name: Clean up PATH (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $path = ($env:PATH -split ';') | Where-Object { $_ -notmatch 'Service.Fabric' -and $_ -notmatch 'Git\\usr\\bin' -and $_ -notmatch 'Git\\bin' -and $_ -notmatch 'Strawberry\\c' }
+          $path = ($env:PATH -split ';') | Where-Object { $_ -and $_ -notmatch 'Service.Fabric' -and -not (Test-Path (Join-Path $_ 'sh.exe') -ErrorAction SilentlyContinue) }
           "PATH=$($path -join ';')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install latest Conan
