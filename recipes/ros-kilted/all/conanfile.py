@@ -106,6 +106,21 @@ _PIP_DESKTOP_ONLY = (
     "pyparsing==3.1.1",
 )
 
+# Mach-O magic numbers (32/64-bit, either endianness, plus fat/universal binaries).
+_MACHO_MAGICS = (
+    b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe",
+    b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",
+    b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca",
+)
+
+
+def _is_macho(path):
+    try:
+        with open(path, "rb") as f:
+            return f.read(4) in _MACHO_MAGICS
+    except OSError:
+        return False
+
 
 class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
@@ -368,20 +383,6 @@ class Ros2KiltedConan(ConanFile):
         copy(self, "*", src=inst, dst=self.package_folder)
         pkg = self.package_folder
 
-        if self.settings.os == "Macos":
-            # ament bakes a wrong rpath into ROS's own .so; fix before pip adds wheels below.
-            lib_dir = os.path.join(pkg, "lib")
-            for root, _, files in os.walk(lib_dir):
-                for name in files:
-                    if not name.endswith(".so"):
-                        continue
-                    rel = os.path.relpath(lib_dir, root)
-                    so_path = os.path.join(root, name)
-                    self.run(f'install_name_tool -add_rpath "@loader_path/{rel}" '
-                             f'"{so_path}"', ignore_errors=True)
-                    # re-sign: install_name_tool invalidates it, unsigned = SIGKILL on arm64.
-                    self.run(f'codesign --force -s - "{so_path}"', ignore_errors=True)
-
         pyenv = PyEnv(self, py_version=str(self.options.python_version))
         pkgs = " ".join(f'"{p}"' for p in self._pip_runtime_tools())
         self.run(
@@ -440,6 +441,38 @@ class Ros2KiltedConan(ConanFile):
 
     def finalize(self):
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
+
+        if self.info.settings.os == "Macos":
+            # Runs per-machine so rpaths to shared deps (e.g. qt) stay valid across rebuilds.
+            pkg = self.package_folder
+            lib_dir = os.path.join(pkg, "lib")
+
+            def _has_dylib(libdir):
+                try:
+                    return any(f.endswith(".dylib") for f in os.listdir(libdir))
+                except OSError:
+                    return False
+
+            # Skip statically-built deps (no .dylib to resolve).
+            extra_rpaths = [
+                libdir
+                for dep in self.dependencies.host.values()
+                for libdir in dep.cpp_info.libdirs
+                if _has_dylib(libdir)
+            ]
+            dep_rpath_flags = " ".join(f'-add_rpath "{libdir}"' for libdir in extra_rpaths)
+            for root, _, files in os.walk(pkg):
+                for name in files:
+                    path = os.path.join(root, name)
+                    if os.path.islink(path) or not _is_macho(path):
+                        continue
+                    rel = os.path.relpath(lib_dir, root)
+                    self.run(f'install_name_tool -add_rpath "@loader_path/{rel}" '
+                             f'{dep_rpath_flags} "{path}"',
+                             ignore_errors=True, env=None, quiet=True)
+                    # re-sign: install_name_tool invalidates it, unsigned = SIGKILL on arm64.
+                    self.run(f'codesign --force -s - "{path}"',
+                             ignore_errors=True, env=None, quiet=True)
 
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
