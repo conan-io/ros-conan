@@ -1,9 +1,4 @@
-"""Fail if any shared library under the ros-kilted install is missing a runtime dependency.
-
-Loads every .so/.dylib/.dll it finds via the OS loader (ctypes) instead of parsing
-ldd/otool output, so it catches the same "library not found" failures a consumer would
-hit at runtime (this is the class of bug the macOS rpath fixes in finalize() exist for).
-"""
+"""Fail if any shared library under the ros-kilted install has an unresolved runtime dependency."""
 import ctypes
 import os
 import sys

@@ -132,9 +132,7 @@ class Ros2KiltedConan(ConanFile):
     exports_sources = "conandata.yml", "patches/*"
     # shared-library keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH
     package_type = "shared-library"
-    # Approximate: aggregates hundreds of ROS packages under mixed licenses (dominated by
-    # Apache-2.0/BSD-3-Clause/MIT). desktop/desktop_full additionally bundle PyQt5, which is
-    # GPL-3.0-or-later or commercial (Riverbank Computing), not LGPL.
+    # Approximate: mixed licenses across the aggregate; desktop/desktop_full also bundle PyQt5 (GPL-3.0-or-later/commercial, not LGPL).
     license = ("Apache-2.0", "BSD-3-Clause", "MIT", "LGPL-3.0-or-later", "GPL-3.0-or-later")
     url = "https://docs.ros.org/en/kilted/"
     description = "ROS 2 Kilted merged install from source."
@@ -216,7 +214,9 @@ class Ros2KiltedConan(ConanFile):
             self.requires("openjpeg/2.5.2", override=True)
             # sdl2_vendor calls find_package(SDL2) before its ExternalProject; CMakeDeps
             # satisfies the check so the ExternalProject build is skipped entirely.
-            self.requires("sdl/2.32.10")
+            # shared=True: static SDL2 would duplicate its ObjC classes into joy/game_controller
+            # if both load into the same component_container.
+            self.requires("sdl/2.32.10", options={"shared": True})
             self.requires("qt/5.15.19", options={"shared": True})
             # OGRE's bundled glew.h includes <GL/glu.h>; qt/opencv bring opengl/system but not
             # GLU. glu/system installs libglu1-mesa-dev on Linux, is a no-op on macOS (part of
@@ -476,9 +476,7 @@ class Ros2KiltedConan(ConanFile):
                     self.run(f'install_name_tool -add_rpath "@loader_path/{rel}" '
                              f'{dep_rpath_flags} "{path}"',
                              ignore_errors=True, env=None, quiet=True)
-                    # re-sign: install_name_tool invalidates it, unsigned = SIGKILL on arm64.
-                    # Not ignore_errors here: a silent codesign failure ships an unsigned
-                    # binary that only breaks later, at consumer runtime, as a bare SIGKILL.
+                    # re-sign (invalidated above); not ignore_errors: unsigned = SIGKILL on arm64.
                     self.run(f'codesign --force -s - "{path}"',
                              env=None, quiet=True)
 
@@ -491,9 +489,8 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
-        # lib/ itself doesn't need LD_LIBRARY_PATH/DYLD_LIBRARY_PATH: finalize() bakes real
-        # rpaths there on macOS, and ament_cmake's $ORIGIN-relative install RPATH covers Linux.
-        # Only the opt/<vendor>/lib dirs below need the env var (see comment there).
+        # lib/ needs no LD_LIBRARY_PATH/DYLD_LIBRARY_PATH: covered by finalize()'s rpaths (macOS)
+        # and $ORIGIN install RPATH (Linux).
 
         python_sites = [os.path.join(p, "Lib", "site-packages")] + sorted(
             glob.glob(os.path.join(p, "lib", "python*", "site-packages")))
@@ -520,10 +517,20 @@ class Ros2KiltedConan(ConanFile):
                     self.cpp_info.includedirs.append(inc)
                 for libname in ("lib", "lib64"):
                     vlib = os.path.join(vendor, libname)
-                    if os.path.isdir(vlib):
-                        self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", vlib)
-                        self.runenv_info.prepend_path("LD_LIBRARY_PATH", vlib)
-                        self.cpp_info.libdirs.append(vlib)
+                    if not os.path.isdir(vlib):
+                        continue
+                    self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", vlib)
+                    self.runenv_info.prepend_path("LD_LIBRARY_PATH", vlib)
+                    self.cpp_info.libdirs.append(vlib)
+                    # Some vendors (e.g. OGRE plugins) nest one level deeper and rely on
+                    # LD_LIBRARY_PATH, not rpath, to find sibling plugins.
+                    for root, _, files in os.walk(vlib):
+                        if root == vlib:
+                            continue
+                        if any(".so" in f or f.endswith((".dylib", ".dll")) for f in files):
+                            self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", root)
+                            self.runenv_info.prepend_path("LD_LIBRARY_PATH", root)
+                            self.cpp_info.libdirs.append(root)
                 bindir = os.path.join(vendor, "bin")
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
