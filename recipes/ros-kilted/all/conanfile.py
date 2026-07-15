@@ -135,7 +135,7 @@ class Ros2KiltedConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     options = {
         "variant": ["core", "base", "desktop", "desktop_full"],
-        "python_version": ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"],
+        "python_version": ["3.9", "3.10", "3.11", "3.12"],
     }
     default_options = {
         "variant": "core",
