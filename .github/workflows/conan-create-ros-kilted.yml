@@ -93,11 +93,7 @@ jobs:
         shell: bash
         run: echo "$(dirname '${{ steps.setup_python.outputs.python-path }}')" >> "$GITHUB_PATH"
 
-      # - Service Fabric's bin dir shadows System32's msvcp140.dll, causing an access
-      #   violation (0xC0000005) inside rcl_init() on any ros2 command startup.
-      # - Qt requires no sh.exe on PATH when building on Windows (Git, Strawberry Perl,
-      #   MinGW/MSYS all ship one): https://doc.qt.io/archives/qt-5.15/windows-building.html
-      #   (Step 3). Drop any PATH entry that has one instead of naming vendors one by one.
+      # Service Fabric's msvcp140.dll breaks rcl_init(); Qt's build needs no sh.exe on PATH.
       - name: Clean up PATH (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -137,7 +133,6 @@ jobs:
           -o ros-kilted/*:variant=${{ matrix.variant }}
           --format=json --out-file=install_graph.json
 
-      # Uploads every binary that built from source (binary=Build)
       - name: Upload binaries built from source to Artifactory
         shell: bash
         run: |
@@ -151,17 +146,22 @@ jobs:
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
 
+      # pwsh, not bash: Git Bash re-adds its own sh.exe to PATH, breaking Qt's build.
+      - name: Find and run examples (Windows)
+        if: runner.os == 'Windows' && matrix.run_examples
+        shell: pwsh
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
+
       - name: Find and run examples
-        if: matrix.run_examples
+        if: runner.os != 'Windows' && matrix.run_examples
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # unset: colcon-powershell misdetects itself as primary shell otherwise
-          # (real PowerShell on Windows needs this var, so only unset elsewhere)
-          if [ "${{ runner.os }}" != "Windows" ]; then
-            unset PSModulePath
-          fi
+          # colcon-powershell misdetects itself as primary shell otherwise
+          unset PSModulePath
           python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
       - name: Upload pose_estimation example deps built from source to Artifactory
