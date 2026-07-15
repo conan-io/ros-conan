@@ -1,0 +1,26 @@
+--- src/python_qt_binding/src/python_qt_binding/binding_helper.py
++++ src/python_qt_binding/src/python_qt_binding/binding_helper.py
+@@ -52,7 +52,7 @@
+
+     # order of default bindings can be changed here
+     if platform.system() == 'Darwin':
+-        DEFAULT_BINDING_ORDER = ['pyside']
++        DEFAULT_BINDING_ORDER = ['pyqt', 'pyside']
+     else:
+         DEFAULT_BINDING_ORDER = ['pyqt', 'pyside']
+
+@@ -158,6 +158,14 @@
+         _named_import('PyQt5.%s' % module_name)
+     for module_name in optional_modules:
+         _named_optional_import('PyQt5.%s' % module_name)
++
++    # PyQt5 bundles its own private Qt5 build. Force it to use its own plugins dir instead of
++    # whatever QT_PLUGIN_PATH points at (e.g. a C++-only Qt used to build rviz2) -- loading a
++    # platform plugin built against a different QtCore binary crashes the process.
++    import PyQt5
++    _pyqt5_plugins = os.path.join(os.path.dirname(PyQt5.__file__), 'Qt5', 'plugins')
++    if os.path.isdir(_pyqt5_plugins):
++        sys.modules['QtCore'].QCoreApplication.setLibraryPaths([_pyqt5_plugins])
+
+     # set some names for compatibility with PySide
+     sys.modules['QtCore'].Signal = sys.modules['QtCore'].pyqtSignal

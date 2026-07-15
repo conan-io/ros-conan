@@ -34,3 +34,11 @@ class TestPackageConan(ConanFile):
         self.run("ros2 topic list", env="conanrun")
         self.run("ros2 service list", env="conanrun")
         self.run("ros2 action list", env="conanrun")
+        self.run("colcon -h", env="conanrun")
+
+        python_exe = "python" if self.settings.os == "Windows" else "python3"
+        self.run(f'{python_exe} -c "import rclpy"', env="conanrun")
+
+        ros_prefix = self.dependencies["ros-kilted"].package_folder
+        check_script = os.path.join(self.source_folder, "check_shared_libs.py")
+        self.run(f'{python_exe} "{check_script}" "{ros_prefix}"', env="conanrun")

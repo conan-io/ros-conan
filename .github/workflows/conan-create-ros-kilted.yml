@@ -35,12 +35,15 @@ jobs:
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
             variant: desktop
+            run_examples: true
           - runner: windows-2022
             conan_home: C:/.c2
             variant: desktop
+            run_examples: true
           - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: desktop
+            run_examples: true
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -90,16 +93,12 @@ jobs:
         shell: bash
         run: echo "$(dirname '${{ steps.setup_python.outputs.python-path }}')" >> "$GITHUB_PATH"
 
-      # windows-2022 runners are Azure VMs with Service Fabric pre-installed. Its bin directory
-      # appears before C:\Windows\System32 in PATH, so the Windows loader picks up Service
-      # Fabric's incompatible msvcp140.dll instead of the System32 copy. That ABI mismatch
-      # causes an access violation (0xC0000005) inside rcl_init() on any ros2 command startup.
-      # Strip Service Fabric paths from PATH so the loader finds the correct MSVC runtime DLLs.
-      - name: Remove Service Fabric from PATH (Windows)
+      # Service Fabric's msvcp140.dll breaks rcl_init(); Qt's build needs no sh.exe on PATH.
+      - name: Clean up PATH (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $path = ($env:PATH -split ';') | Where-Object { $_ -notmatch 'Service.Fabric' }
+          $path = ($env:PATH -split ';') | Where-Object { $_ -and $_ -notmatch 'Service.Fabric' -and -not (Test-Path (Join-Path $_ 'sh.exe') -ErrorAction SilentlyContinue) }
           "PATH=$($path -join ';')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install latest Conan
@@ -134,7 +133,6 @@ jobs:
           -o ros-kilted/*:variant=${{ matrix.variant }}
           --format=json --out-file=install_graph.json
 
-      # Uploads every binary that built from source (binary=Build)
       - name: Upload binaries built from source to Artifactory
         shell: bash
         run: |
@@ -148,15 +146,26 @@ jobs:
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
 
-      - name: Find and run examples
-        if: matrix.run_examples
-        shell: bash
+      # pwsh, not bash: Git Bash re-adds its own sh.exe to PATH, breaking Qt's build.
+      - name: Find and run examples (Windows)
+        if: runner.os == 'Windows' && matrix.run_examples
+        shell: pwsh
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
+      - name: Find and run examples
+        if: runner.os != 'Windows' && matrix.run_examples
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          # colcon-powershell misdetects itself as primary shell otherwise
+          unset PSModulePath
+          python -u "${{ github.workspace }}/.github/run_ci_tests.py"
+
       - name: Upload pose_estimation example deps built from source to Artifactory
-        if: always() && matrix.run_examples
+        if: always() && matrix.run_examples && hashFiles('examples/pose_estimation/install_graph.json') != ''
         shell: bash
         working-directory: ${{ github.workspace }}/examples/pose_estimation
         run: |

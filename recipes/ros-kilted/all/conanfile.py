@@ -1,3 +1,4 @@
+import configparser
 import glob
 import os
 import pathlib
@@ -44,7 +45,7 @@ PIP_RUNTIME_TOOLS = (
     "catkin_pkg==1.0.0",
     "cryptography==41.0.7",
     "docutils==0.20.1",
-    "empy==3.3.4",
+    "empy>=4.0,<5",
     "fastjsonschema==2.19.0",
     "importlib-metadata==4.13.0",
     "lark==1.1.9",
@@ -54,10 +55,6 @@ PIP_RUNTIME_TOOLS = (
     "pathspec==0.12.1",
     "pluggy==1.4.0",
     "psutil==5.9.8",
-    "pydot==1.4.2",
-    "pyparsing==3.1.1",
-    # PyQt5 provides the Python Qt bindings for rqt; the Conan qt/* dep covers the C++ side.
-    "PyQt5==5.15.11",
     "python-dateutil==2.8.2",
     "PyYAML==6.0.1",
     "setuptools==68.1.2",
@@ -100,7 +97,32 @@ _PIP_BUILD_ONLY = (
     "yamllint==1.33.0",
 )
 
-PIP_BUILD_TOOLS = PIP_RUNTIME_TOOLS + _PIP_BUILD_ONLY
+# PyQt5 (rqt's Qt bindings), pydot and pyparsing (pydot's own dependency, used by
+# qt_dotgraph/rqt_graph) are only needed for desktop/desktop_full, matching the
+# conditional qt/* C++ requirement below.
+_PIP_DESKTOP_ONLY = (
+    "PyQt5==5.15.11",
+    "pydot==1.4.2",
+    "pyparsing==3.1.1",
+)
+
+# Mach-O magic numbers (32/64-bit, either endianness, plus fat/universal binaries).
+_MACHO_MAGICS = (
+    b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe",
+    b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",
+    b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca",
+)
+
+
+def _is_macho(path):
+    try:
+        with open(path, "rb") as f:
+            return f.read(4) in _MACHO_MAGICS
+    except OSError:
+        return False
+
+
+required_conan_version = ">=2.26.0"
 
 
 class Ros2KiltedConan(ConanFile):
@@ -110,13 +132,14 @@ class Ros2KiltedConan(ConanFile):
     exports_sources = "conandata.yml", "patches/*"
     # shared-library keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH
     package_type = "shared-library"
-    license = "Apache-2.0"
+    # Approximate: mixed licenses across the aggregate; desktop/desktop_full also bundle PyQt5 (GPL-3.0-or-later/commercial, not LGPL).
+    license = ("Apache-2.0", "BSD-3-Clause", "MIT", "LGPL-3.0-or-later", "GPL-3.0-or-later")
     url = "https://docs.ros.org/en/kilted/"
-    description = "ROS 2 Kilted merged install from source, dependencies via Conan + PyEnv."
+    description = "ROS 2 Kilted merged install from source."
     settings = "os", "compiler", "build_type", "arch"
     options = {
         "variant": ["core", "base", "desktop", "desktop_full"],
-        "python_version": ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"],
+        "python_version": ["3.9", "3.10", "3.11", "3.12"],
     }
     default_options = {
         "variant": "core",
@@ -191,14 +214,16 @@ class Ros2KiltedConan(ConanFile):
             self.requires("openjpeg/2.5.2", override=True)
             # sdl2_vendor calls find_package(SDL2) before its ExternalProject; CMakeDeps
             # satisfies the check so the ExternalProject build is skipped entirely.
-            self.requires("sdl/2.32.10")
-            self.requires("qt/5.15.18", options={"shared": True})
+            # shared=True: static SDL2 would duplicate its ObjC classes into joy/game_controller
+            # if both load into the same component_container.
+            self.requires("sdl/2.32.10", options={"shared": True})
+            self.requires("qt/5.15.19", options={"shared": True})
             # OGRE's bundled glew.h includes <GL/glu.h>; qt/opencv bring opengl/system but not
             # GLU. glu/system installs libglu1-mesa-dev on Linux, is a no-op on macOS (part of
             # the OpenGL framework), and exposes glu32 on Windows.
             self.requires("glu/system")
             if self.settings.os == "Linux":
-                # qt/5.15.18 pins xkbcommon/1.5.0; opencv (with_wayland=True) pins 1.6.0.
+                # qt/5.15.19 pins xkbcommon/1.5.0; opencv (with_wayland=True) pins 1.6.0.
                 # Both use the same targets so forcing 1.6.0 is safe.
                 self.requires("xkbcommon/1.6.0", override=True)
             self.requires("pcl/1.14.1")
@@ -211,9 +236,14 @@ class Ros2KiltedConan(ConanFile):
         if self.settings.os == "Windows":
             self.tool_requires("7zip/23.01")
 
+    def _pip_runtime_tools(self):
+        if str(self.options.variant) in ("desktop", "desktop_full"):
+            return PIP_RUNTIME_TOOLS + _PIP_DESKTOP_ONLY
+        return PIP_RUNTIME_TOOLS
+
     def generate(self):
         pyenv = PyEnv(self, py_version=str(self.options.python_version))
-        pyenv.install(list(PIP_BUILD_TOOLS))
+        pyenv.install(list(self._pip_runtime_tools() + _PIP_BUILD_ONLY))
         # ament_cmake_core imports ament_package at CMake configure time, but colcon schedules
         # both packages in the same parallel batch so ament_cmake_core runs first. Pre-install
         # from source (vcstool unpacked it under src/ament/ament_package) so the first cmake
@@ -273,6 +303,9 @@ class Ros2KiltedConan(ConanFile):
         if is_msvc(self):
             VCVars(self).generate()
         vbe = VirtualBuildEnv(self)
+        # Prevent colcon from chaining onto whatever ROS workspace the caller's shell has sourced.
+        vbe.environment().unset("AMENT_PREFIX_PATH")
+        vbe.environment().unset("COLCON_PREFIX_PATH")
         vbe.environment().define("ROS_DISTRO", "kilted")
         py_ver = str(self.options.python_version)
         vbe.environment().prepend_path("PYTHONPATH",
@@ -354,48 +387,98 @@ class Ros2KiltedConan(ConanFile):
         if not os.path.isdir(inst):
             raise ConanException(f"No merged install found at {inst}")
         copy(self, "*", src=inst, dst=self.package_folder)
+        pkg = self.package_folder
+
+        pyenv = PyEnv(self, py_version=str(self.options.python_version))
+        pkgs = " ".join(f'"{p}"' for p in self._pip_runtime_tools())
+        self.run(
+            f'"{pyenv.env_exe}" -m pip install --quiet --disable-pip-version-check '
+            f'--ignore-installed --no-warn-script-location --prefix "{pkg}" {pkgs}'
+        )
+        if str(self.settings.os) == "Windows":
+            # pip's .exe launchers bake in the build-time Python path, which stops
+            # existing once the build venv is gone. Most of them (colcon, catkin_pkg,
+            # pytest, ...) don't get a "-script.py" companion to key a fix off of, so
+            # read the real entry point from entry_points.txt and replace every
+            # console-script .exe with a .cmd that resolves "python" from PATH instead.
+            entry_points = {}
+            for ep_file in glob.glob(os.path.join(pkg, "Lib", "site-packages", "*.dist-info",
+                                                   "entry_points.txt")):
+                parser = configparser.ConfigParser()
+                parser.optionxform = str
+                parser.read(ep_file)
+                if parser.has_section("console_scripts"):
+                    for script_name, target in parser.items("console_scripts"):
+                        entry_points[script_name] = target.split()[0]
+
+            scripts_dir = os.path.join(pkg, "Scripts")
+            if os.path.isdir(scripts_dir):
+                for name in os.listdir(scripts_dir):
+                    if not name.endswith(".exe"):
+                        continue
+                    entry = name[:-len(".exe")]
+                    target = entry_points.get(entry)
+                    if not target:
+                        continue
+                    module, _, attr = target.partition(":")
+                    py_code = f"import sys, importlib; f = importlib.import_module('{module}'); "
+                    for part in (attr or "main").split("."):
+                        py_code += f"f = getattr(f, '{part}'); "
+                    py_code += "sys.exit(f())"
+                    save(self, os.path.join(scripts_dir, entry + ".cmd"),
+                         f'@echo off\r\npython -c "{py_code}" %*\r\n')
+                    os.remove(os.path.join(scripts_dir, name))
+                    script_py = os.path.join(scripts_dir, entry + "-script.py")
+                    if os.path.isfile(script_py):
+                        os.remove(script_py)
+        else:
+            new_shebang = b"#!/usr/bin/env python3\n"
+            bin_dir = os.path.join(pkg, "bin")
+            for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
+                path = os.path.join(bin_dir, name)
+                if not os.path.isfile(path) or os.path.islink(path):
+                    continue
+                with open(path, "rb") as f:
+                    data = f.read()
+                head, sep, rest = data.partition(b"\n")
+                if sep and head.startswith(b"#!") and b"python" in head:
+                    with open(path, "wb") as f:
+                        f.write(new_shebang + rest)
 
     def finalize(self):
         copy(self, "*", src=self.immutable_package_folder, dst=self.package_folder)
 
-        py_ver = str(self.info.options.python_version)
-        pyenv = PyEnv(self, folder=self.package_folder, py_version=py_ver)
-        # Only runtime tools: consumers don't need the build/lint tooling used to compile ROS.
-        pyenv.install(list(PIP_RUNTIME_TOOLS))
+        if self.info.settings.os == "Macos":
+            # Runs per-machine so rpaths to shared deps (e.g. qt) stay valid across rebuilds.
+            pkg = self.package_folder
+            lib_dir = os.path.join(pkg, "lib")
 
-        if str(self.info.settings.os) == "Windows":
-            scripts_dir = os.path.join(self.package_folder, "Scripts")
-            if not os.path.isdir(scripts_dir):
-                return
-            cmd_template = (
-                "@echo off\r\n"
-                f'"{pyenv.env_exe}" "%~dp0%~n0-script.py" %*\r\n'
-            )
-            for name in os.listdir(scripts_dir):
-                if not name.endswith("-script.py"):
-                    continue
-                entry = name[:-len("-script.py")]
-                save(self, os.path.join(scripts_dir, entry + ".cmd"),
-                     cmd_template)
-                # PATHEXT prefers .EXE over .CMD; drop the broken stub so
-                # cmd.exe resolves `ros2` to our shim instead.
-                exe = os.path.join(scripts_dir, entry + ".exe")
-                if os.path.isfile(exe):
-                    os.remove(exe)
-            return
+            def _has_dylib(libdir):
+                try:
+                    return any(f.endswith(".dylib") for f in os.listdir(libdir))
+                except OSError:
+                    return False
 
-        new_shebang = f"#!{pyenv.env_exe}\n".encode("utf-8")
-        bin_dir = os.path.join(self.package_folder, "bin")
-        for name in (os.listdir(bin_dir) if os.path.isdir(bin_dir) else ()):
-            path = os.path.join(bin_dir, name)
-            if not os.path.isfile(path) or os.path.islink(path):
-                continue
-            with open(path, "rb") as f:
-                data = f.read()
-            head, sep, rest = data.partition(b"\n")
-            if sep and head.startswith(b"#!") and b"python" in head:
-                with open(path, "wb") as f:
-                    f.write(new_shebang + rest)
+            # Skip statically-built deps (no .dylib to resolve).
+            extra_rpaths = [
+                libdir
+                for dep in self.dependencies.host.values()
+                for libdir in dep.cpp_info.libdirs
+                if _has_dylib(libdir)
+            ]
+            dep_rpath_flags = " ".join(f'-add_rpath "{libdir}"' for libdir in extra_rpaths)
+            for root, _, files in os.walk(pkg):
+                for name in files:
+                    path = os.path.join(root, name)
+                    if os.path.islink(path) or not _is_macho(path):
+                        continue
+                    rel = os.path.relpath(lib_dir, root)
+                    self.run(f'install_name_tool -add_rpath "@loader_path/{rel}" '
+                             f'{dep_rpath_flags} "{path}"',
+                             ignore_errors=True, env=None, quiet=True)
+                    # re-sign (invalidated above); not ignore_errors: unsigned = SIGKILL on arm64.
+                    self.run(f'codesign --force -s - "{path}"',
+                             env=None, quiet=True)
 
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
@@ -406,6 +489,8 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
+        # lib/ needs no LD_LIBRARY_PATH/DYLD_LIBRARY_PATH: covered by finalize()'s rpaths (macOS)
+        # and $ORIGIN install RPATH (Linux).
 
         python_sites = [os.path.join(p, "Lib", "site-packages")] + sorted(
             glob.glob(os.path.join(p, "lib", "python*", "site-packages")))
@@ -432,10 +517,20 @@ class Ros2KiltedConan(ConanFile):
                     self.cpp_info.includedirs.append(inc)
                 for libname in ("lib", "lib64"):
                     vlib = os.path.join(vendor, libname)
-                    if os.path.isdir(vlib):
-                        self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", vlib)
-                        self.runenv_info.prepend_path("LD_LIBRARY_PATH", vlib)
-                        self.cpp_info.libdirs.append(vlib)
+                    if not os.path.isdir(vlib):
+                        continue
+                    self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", vlib)
+                    self.runenv_info.prepend_path("LD_LIBRARY_PATH", vlib)
+                    self.cpp_info.libdirs.append(vlib)
+                    # Some vendors (e.g. OGRE plugins) nest one level deeper and rely on
+                    # LD_LIBRARY_PATH, not rpath, to find sibling plugins.
+                    for root, _, files in os.walk(vlib):
+                        if root == vlib:
+                            continue
+                        if any(".so" in f or f.endswith((".dylib", ".dll")) for f in files):
+                            self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", root)
+                            self.runenv_info.prepend_path("LD_LIBRARY_PATH", root)
+                            self.cpp_info.libdirs.append(root)
                 bindir = os.path.join(vendor, "bin")
                 if os.path.isdir(bindir):
                     self.cpp_info.bindirs.append(bindir)
@@ -447,13 +542,6 @@ class Ros2KiltedConan(ConanFile):
                 if os.path.isdir(qt_plugins):
                     self.runenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
                     self.buildenv_info.prepend_path("QT_PLUGIN_PATH", qt_plugins)
-
-        pyenv = PyEnv(self, folder=p, py_version=str(self.options.python_version))
-        py_exe = pyenv.env_exe
-        self.runenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
-        self.runenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
-        self.buildenv_info.define("COLCON_PYTHON_EXECUTABLE", py_exe)
-        self.buildenv_info.define("AMENT_PYTHON_EXECUTABLE", py_exe)
 
         self.conf_info.define_path("user.ros2:install_prefix", p)
         setup = os.path.join(p, "setup")
