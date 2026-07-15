@@ -122,6 +122,9 @@ def _is_macho(path):
         return False
 
 
+required_conan_version = ">=2.26.0"
+
+
 class Ros2KiltedConan(ConanFile):
     name = "ros-kilted"
     version = "2026.06.17"
@@ -129,7 +132,10 @@ class Ros2KiltedConan(ConanFile):
     exports_sources = "conandata.yml", "patches/*"
     # shared-library keeps require.run=True so VirtualRunEnv maps cpp_info.bindirs → PATH
     package_type = "shared-library"
-    license = "Apache-2.0"
+    # Approximate: aggregates hundreds of ROS packages under mixed licenses (dominated by
+    # Apache-2.0/BSD-3-Clause/MIT). desktop/desktop_full additionally bundle PyQt5, which is
+    # GPL-3.0-or-later or commercial (Riverbank Computing), not LGPL.
+    license = ("Apache-2.0", "BSD-3-Clause", "MIT", "LGPL-3.0-or-later", "GPL-3.0-or-later")
     url = "https://docs.ros.org/en/kilted/"
     description = "ROS 2 Kilted merged install from source."
     settings = "os", "compiler", "build_type", "arch"
@@ -471,8 +477,10 @@ class Ros2KiltedConan(ConanFile):
                              f'{dep_rpath_flags} "{path}"',
                              ignore_errors=True, env=None, quiet=True)
                     # re-sign: install_name_tool invalidates it, unsigned = SIGKILL on arm64.
+                    # Not ignore_errors here: a silent codesign failure ships an unsigned
+                    # binary that only breaks later, at consumer runtime, as a bare SIGKILL.
                     self.run(f'codesign --force -s - "{path}"',
-                             ignore_errors=True, env=None, quiet=True)
+                             env=None, quiet=True)
 
     def package_info(self):
         self.cpp_info.set_property("cmake_find_mode", "none")
@@ -483,9 +491,9 @@ class Ros2KiltedConan(ConanFile):
         self.cpp_info.bindirs.append(scripts_path)
         self.buildenv_info.prepend_path("PATH", bin_path)
         self.buildenv_info.prepend_path("PATH", scripts_path)
-        lib_path = os.path.join(p, "lib")
-        # self.runenv_info.prepend_path("LD_LIBRARY_PATH", lib_path)
-        # self.runenv_info.prepend_path("DYLD_LIBRARY_PATH", lib_path)
+        # lib/ itself doesn't need LD_LIBRARY_PATH/DYLD_LIBRARY_PATH: finalize() bakes real
+        # rpaths there on macOS, and ament_cmake's $ORIGIN-relative install RPATH covers Linux.
+        # Only the opt/<vendor>/lib dirs below need the env var (see comment there).
 
         python_sites = [os.path.join(p, "Lib", "site-packages")] + sorted(
             glob.glob(os.path.join(p, "lib", "python*", "site-packages")))
