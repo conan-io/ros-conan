@@ -1,7 +1,8 @@
 import platform
-from test.examples_tools import run
 
-run("conan install --profile ../../profiles/ros --build=missing")
+from test.examples_tools import VARIANT_ARGS, run
+
+run(f"conan install --profile ../../profiles/ros {VARIANT_ARGS} --build=missing")
 
 if platform.system() == "Windows":
     run(

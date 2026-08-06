@@ -5,6 +5,10 @@ import sys
 from contextlib import contextmanager
 import time
 
+# CI matrix drives ros-kilted variant so examples are exercised for both core and desktop.
+VARIANT = os.environ.get("ROS_KILTED_VARIANT", "")
+VARIANT_ARGS = f"-o ros-kilted/*:variant={VARIANT}" if VARIANT else ""
+
 
 @contextmanager
 def chdir(dir_path):

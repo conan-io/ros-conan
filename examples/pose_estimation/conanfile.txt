@@ -4,7 +4,6 @@ tensorflow-lite/2.15.0
 opencv/4.9.0
 
 [options]
-ros-kilted/2026.06.17:variant=core
 opencv/*:with_ffmpeg=False
 
 [generators]

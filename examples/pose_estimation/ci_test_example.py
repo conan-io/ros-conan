@@ -1,10 +1,9 @@
-import os
 import platform
 
-from test.examples_tools import run
+from test.examples_tools import VARIANT_ARGS, run
 
 run(
-    "conan install --profile ../../profiles/ros --build=missing "
+    f"conan install --profile ../../profiles/ros {VARIANT_ARGS} --build=missing "
     "--format=json --out-file=install_graph.json"
 )
 

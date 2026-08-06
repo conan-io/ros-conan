@@ -23,27 +23,21 @@ jobs:
           - runner: windows-2022
             conan_home: C:/.c2
             variant: core
-            run_examples: true
           - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: core
-            run_examples: true
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
             variant: core
-            run_examples: true
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
             variant: desktop
-            run_examples: true
           - runner: windows-2022
             conan_home: C:/.c2
             variant: desktop
-            run_examples: true
           - runner: macos-latest
             conan_home: /tmp/conan-ci
             variant: desktop
-            run_examples: true
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -148,24 +142,26 @@ jobs:
 
       # pwsh, not bash: Git Bash re-adds its own sh.exe to PATH, breaking Qt's build.
       - name: Find and run examples (Windows)
-        if: runner.os == 'Windows' && matrix.run_examples
+        if: runner.os == 'Windows'
         shell: pwsh
         env:
           PYTHONPATH: ${{ github.workspace }}
+          ROS_KILTED_VARIANT: ${{ matrix.variant }}
         run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
       - name: Find and run examples
-        if: runner.os != 'Windows' && matrix.run_examples
+        if: runner.os != 'Windows'
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
+          ROS_KILTED_VARIANT: ${{ matrix.variant }}
         run: |
           # colcon-powershell misdetects itself as primary shell otherwise
           unset PSModulePath
           python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
       - name: Upload pose_estimation example deps built from source to Artifactory
-        if: always() && matrix.run_examples && hashFiles('examples/pose_estimation/install_graph.json') != ''
+        if: always() && hashFiles('examples/pose_estimation/install_graph.json') != ''
         shell: bash
         working-directory: ${{ github.workspace }}/examples/pose_estimation
         run: |
