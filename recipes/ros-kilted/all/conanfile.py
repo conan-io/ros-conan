@@ -144,9 +144,6 @@ class Ros2KiltedConan(ConanFile):
     default_options = {
         "variant": "core",
         "python_version": "3.12",
-        # CCI ffmpeg declares avcodec.requires("libwebp::libwebp") but the CCI libwebp recipe
-        # exposes component "webp", not "libwebp"; the mismatch breaks OpenCV's CMakeDeps.
-        "ffmpeg/*:with_libwebp": False,
         # RViz QPA platform plugin (cocoa/xcb/qwindows) is loaded at runtime from disk;
         # static Qt requires Q_IMPORT_PLUGIN (not done by rviz) and causes ObjC class
         # collisions across rviz_rendering/rviz_common/rviz2.
@@ -163,8 +160,6 @@ class Ros2KiltedConan(ConanFile):
         if str(self.options.variant) in ("desktop", "desktop_full"):
             # pcl_io links Boost::iostreams, requires a compiled boost
             self.options["boost/*"].header_only = False
-            if self.settings.os == "Windows":
-                self.options["opencv/*"].with_ffmpeg = False
         if str(self.options.variant) in ("base", "desktop", "desktop_full"):
             self.options["python_orocos_kdl/*"].python_version = str(self.options.python_version)
 
@@ -207,7 +202,7 @@ class Ros2KiltedConan(ConanFile):
             self.requires("python_orocos_kdl/1.5.1")
 
         if variant in ("desktop", "desktop_full"):
-            self.requires("opencv/4.9.0")
+            self.requires("opencv/4.12.0")
             self.requires("assimp/5.3.1")
             self.requires("freetype/2.13.2")
             self.requires("libcurl/8.5.0")
