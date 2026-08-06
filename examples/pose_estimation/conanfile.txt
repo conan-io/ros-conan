@@ -10,7 +10,6 @@ opencv/*:with_ffmpeg=False
 [generators]
 CMakeDeps
 CMakeToolchain
-VCVars
 
 [layout]
 cmake_layout
