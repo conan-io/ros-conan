@@ -24,7 +24,7 @@ jobs:
             conan_home: C:/.c2
             variant: core
           - runner: macos-latest
-            conan_home: /tmp/conan-ci
+            conan_home: /private/tmp/conan-ci
             variant: core
           - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
@@ -36,7 +36,7 @@ jobs:
             conan_home: C:/.c2
             variant: desktop
           - runner: macos-latest
-            conan_home: /tmp/conan-ci
+            conan_home: /private/tmp/conan-ci
             variant: desktop
 
     runs-on: ${{ matrix.runner }}
