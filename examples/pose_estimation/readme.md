@@ -21,7 +21,7 @@ skeleton extracted from a video stream. The skeleton can be visualised live in `
 ## How it is wired
 
 - [`conanfile.txt`](conanfile.txt) — requires `ros-kilted/2026.06.17` (`desktop` variant),
-  `opencv/4.9.0` and `tensorflow-lite/2.15.0`.
+  `opencv/4.12.0` and `tensorflow-lite/2.15.0`.
 - [`CMakeLists.txt`](CMakeLists.txt) — a single executable linked against
   `rclcpp::rclcpp`, `opencv::opencv`, `tensorflow::tensorflowlite` and the
   `geometry_msgs` / `visualization_msgs` targets.

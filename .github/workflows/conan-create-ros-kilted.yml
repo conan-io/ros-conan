@@ -25,7 +25,7 @@ jobs:
             variant: core
             run_examples: true
           - runner: macos-latest
-            conan_home: /tmp/conan-ci
+            conan_home: /private/tmp/conan-ci
             variant: core
             run_examples: true
           - runner: ubuntu-latest
@@ -41,7 +41,7 @@ jobs:
             variant: desktop
             run_examples: true
           - runner: macos-latest
-            conan_home: /tmp/conan-ci
+            conan_home: /private/tmp/conan-ci
             variant: desktop
             run_examples: true
 
