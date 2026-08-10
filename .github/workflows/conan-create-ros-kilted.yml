@@ -28,6 +28,7 @@ jobs:
             variant: core
             conan_home: /private/tmp/conan-ci
             relocated_conan_home: /private/tmp/conan-ci-relocated
+          - runner: ubuntu-latest
             variant: core
             conan_home: /tmp/conan-ci
             relocated_conan_home: /tmp/conan-ci-relocated
