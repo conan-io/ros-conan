@@ -134,6 +134,13 @@ jobs:
         run: |
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
+          conan upload "ros-kilted/2026.06.17" -r conan-ros -c
+
+      - name: Upload ros-kilted recipe dependencies to Artifactory
+        if: matrix.variant != 'core'
+        run: |
+          conan upload "orocos_kdl/1.5.1" -r conan-ros -c
+          conan upload "python_orocos_kdl/1.5.1" -r conan-ros -c
 
       - name: Set up relocated Conan home
         shell: bash
