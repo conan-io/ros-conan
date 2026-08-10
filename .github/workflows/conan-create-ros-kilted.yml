@@ -108,6 +108,7 @@ jobs:
           conan --version
 
       - name: Set up Conan home
+        shell: bash
         run: |
           conan profile detect
           conan remote add conan-ros-index . --type=local-recipes-index
