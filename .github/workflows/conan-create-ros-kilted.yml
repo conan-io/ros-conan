@@ -21,23 +21,28 @@ jobs:
       matrix:
         include:
           - runner: windows-2022
+            variant: core
             conan_home: C:/.c2
-            variant: core
+            relocated_conan_home: C:/.ce
           - runner: macos-latest
+            variant: core
             conan_home: /private/tmp/conan-ci
+            relocated_conan_home: /private/tmp/conan-ci-relocated
             variant: core
-          - runner: ubuntu-latest
             conan_home: /tmp/conan-ci
-            variant: core
-          - runner: ubuntu-latest
-            conan_home: /tmp/conan-ci
-            variant: desktop
+            relocated_conan_home: /tmp/conan-ci-relocated
           - runner: windows-2022
+            variant: desktop
             conan_home: C:/.c2
-            variant: desktop
+            relocated_conan_home: C:/.ce
           - runner: macos-latest
-            conan_home: /private/tmp/conan-ci
             variant: desktop
+            conan_home: /private/tmp/conan-ci
+            relocated_conan_home: /private/tmp/conan-ci-relocated
+          - runner: ubuntu-latest
+            variant: desktop
+            conan_home: /tmp/conan-ci
+            relocated_conan_home: /tmp/conan-ci-relocated
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -101,15 +106,10 @@ jobs:
           pip install conan
           conan --version
 
-      - name: Detect Conan profile
-        run: conan profile detect --force
-
-      - name: Add local recipes index
-        run: conan remote add conan-ros-index . --type=local-recipes-index
-
-      - name: Add Artifactory Conan remote
-        shell: bash
+      - name: Set up Conan home
         run: |
+          conan profile detect
+          conan remote add conan-ros-index . --type=local-recipes-index
           conan remote add conan-ros "$ARTIFACTORY_URL"
           conan remote login conan-ros
 
@@ -133,19 +133,30 @@ jobs:
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
 
-      - name: Run ros-kilted test_package
+      - name: Set up relocated Conan home
+        shell: bash
+        env:
+          CONAN_HOME: ${{ matrix.relocated_conan_home }}
+        run: |
+          conan profile detect
+          conan remote add conan-ros "$ARTIFACTORY_URL"
+          conan remote login conan-ros
+
+      - name: Run ros-kilted test_package from the relocated Conan home
         working-directory: ${{ github.workspace }}
+        env:
+          CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: >
           conan test recipes/ros-kilted/all/test_package ros-kilted/2026.06.17
           --profile:all=profiles/ros
           -o ros-kilted/*:variant=${{ matrix.variant }}
 
-      # pwsh, not bash: Git Bash re-adds its own sh.exe to PATH, breaking Qt's build.
       - name: Find and run examples (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
           PYTHONPATH: ${{ github.workspace }}
+          CONAN_HOME: ${{ matrix.relocated_conan_home }}
           ROS_KILTED_VARIANT: ${{ matrix.variant }}
         run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
@@ -154,6 +165,7 @@ jobs:
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
+          CONAN_HOME: ${{ matrix.relocated_conan_home }}
           ROS_KILTED_VARIANT: ${{ matrix.variant }}
         run: |
           # colcon-powershell misdetects itself as primary shell otherwise
@@ -164,6 +176,8 @@ jobs:
         if: always() && hashFiles('examples/pose_estimation/install_graph.json') != ''
         shell: bash
         working-directory: ${{ github.workspace }}/examples/pose_estimation
+        env:
+          CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: |
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
