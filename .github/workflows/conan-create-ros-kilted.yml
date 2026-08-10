@@ -15,7 +15,41 @@ on:
       - '.gitignore'
 
 jobs:
+  # TEMPORARY: these revisions were exported with CRLF line endings before
+  # .gitattributes normalization, and Artifactory resolves them as "latest",
+  # which breaks binary resolution in the test step. Delete this job once the
+  # workflow has run on main and the bad revisions are gone.
+  remove-bad-revisions:
+    runs-on: ubuntu-latest
+    env:
+      CONAN_HOME: /tmp/conan-cleanup
+      ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+      CONAN_LOGIN_USERNAME: ${{ secrets.ARTIFACTORY_USER }}
+      CONAN_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+    steps:
+      - name: Install latest Conan
+        run: pip install conan
+
+      - name: Set up Conan home
+        run: |
+          conan profile detect
+          conan remote add conan-ros "$ARTIFACTORY_URL"
+          conan remote login conan-ros
+
+      # Tolerate failure so re-runs don't break once the revisions are gone
+      - name: Remove CRLF revisions from Artifactory
+        continue-on-error: true
+        run: |
+          conan remove "orocos_kdl/1.5.1#d89fcb8d90609f01bf41f5911305732f" -r=conan-ros -c
+          conan remove "python_orocos_kdl/1.5.1#75970f72f36304146208755896c4adfd" -r=conan-ros -c
+
+      - name: Show remaining revisions
+        run: |
+          conan list "orocos_kdl/1.5.1#*" -r=conan-ros -f=compact
+          conan list "python_orocos_kdl/1.5.1#*" -r=conan-ros -f=compact
+
   conan-create:
+    needs: remove-bad-revisions
     strategy:
       fail-fast: false
       matrix:
