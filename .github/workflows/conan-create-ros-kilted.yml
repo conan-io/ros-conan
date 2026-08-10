@@ -145,6 +145,8 @@ jobs:
           conan remote login conan-ros
 
       - name: Export ros-kilted recipe
+        env:
+          CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: conan export recipes/ros-kilted/all --version=2026.06.17
 
       - name: Run ros-kilted test_package from the relocated Conan home
