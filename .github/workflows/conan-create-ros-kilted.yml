@@ -144,6 +144,9 @@ jobs:
           conan remote add conan-ros "$ARTIFACTORY_URL"
           conan remote login conan-ros
 
+      - name: Export ros-kilted recipe
+        run: conan export recipes/ros-kilted/all --version=2026.06.17
+
       - name: Run ros-kilted test_package from the relocated Conan home
         working-directory: ${{ github.workspace }}
         env:
