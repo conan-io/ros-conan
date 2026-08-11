@@ -111,15 +111,17 @@ jobs:
         shell: bash
         run: |
           conan profile detect
-          conan remote add conan-ros-index . --type=local-recipes-index
           conan remote add conan-ros "$ARTIFACTORY_URL"
           conan remote login conan-ros
 
       - name: Show ros-kilted revisions in Artifactory
         run: conan list "ros-kilted/2026.06.17#*:*" -r=conan-ros -f=compact
 
-      - name: Export ros-kilted recipe
-        run: conan export recipes/ros-kilted/all --version=2026.06.17
+      - name: Export recipes in this reopo
+        run: |
+          conan export recipes/orocos_kdl --version=1.5.1
+          conan export recipes/python_orocos_kdl --version=/1.5.1
+          conan export recipes/ros-kilted/all --version=2026.06.17
 
       - name: Install ros-kilted (build missing from source)
         run: >
@@ -133,14 +135,8 @@ jobs:
         shell: bash
         run: |
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
+          cat upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
-          conan upload "ros-kilted/2026.06.17" -r conan-ros -c
-
-      - name: Upload ros-kilted recipe dependencies to Artifactory
-        if: matrix.variant != 'core'
-        run: |
-          conan upload "orocos_kdl/1.5.1" -r conan-ros -c
-          conan upload "python_orocos_kdl/1.5.1" -r conan-ros -c
 
       - name: Set up relocated Conan home
         shell: bash
@@ -151,10 +147,13 @@ jobs:
           conan remote add conan-ros "$ARTIFACTORY_URL"
           conan remote login conan-ros
 
-      - name: Export ros-kilted recipe
+      - name: Export recipes in this repo
         env:
           CONAN_HOME: ${{ matrix.relocated_conan_home }}
-        run: conan export recipes/ros-kilted/all --version=2026.06.17
+        run: |
+          conan export recipes/orocos_kdl --version=1.5.1
+          conan export recipes/python_orocos_kdl --version=/1.5.1
+          conan export recipes/ros-kilted/all --version=2026.06.17
 
       - name: Run ros-kilted test_package from the relocated Conan home
         working-directory: ${{ github.workspace }}
@@ -194,4 +193,5 @@ jobs:
           CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: |
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
+          cat upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
