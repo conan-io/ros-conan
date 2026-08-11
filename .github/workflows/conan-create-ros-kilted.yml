@@ -119,8 +119,8 @@ jobs:
 
       - name: Export recipes in this reopo
         run: |
-          conan export recipes/orocos_kdl --version=1.5.1
-          conan export recipes/python_orocos_kdl --version=/1.5.1
+          conan export recipes/orocos_kdl/all --version=1.5.1
+          conan export recipes/python_orocos_kdl/all --version=1.5.1
           conan export recipes/ros-kilted/all --version=2026.06.17
 
       - name: Install ros-kilted (build missing from source)
@@ -151,8 +151,8 @@ jobs:
         env:
           CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: |
-          conan export recipes/orocos_kdl --version=1.5.1
-          conan export recipes/python_orocos_kdl --version=/1.5.1
+          conan export recipes/orocos_kdl/all --version=1.5.1
+          conan export recipes/python_orocos_kdl/all --version=1.5.1
           conan export recipes/ros-kilted/all --version=2026.06.17
 
       - name: Run ros-kilted test_package from the relocated Conan home
