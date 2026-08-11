@@ -23,27 +23,21 @@ jobs:
           - runner: windows-2022
             variant: core
             conan_home: C:/.c2
-            relocated_conan_home: C:/.ce
           - runner: macos-latest
             variant: core
             conan_home: /private/tmp/conan-ci
-            relocated_conan_home: /private/tmp/conan-ci-relocated
           - runner: ubuntu-latest
             variant: core
             conan_home: /tmp/conan-ci
-            relocated_conan_home: /tmp/conan-ci-relocated
           - runner: windows-2022
             variant: desktop
             conan_home: C:/.c2
-            relocated_conan_home: C:/.ce
           - runner: macos-latest
             variant: desktop
             conan_home: /private/tmp/conan-ci
-            relocated_conan_home: /private/tmp/conan-ci-relocated
           - runner: ubuntu-latest
             variant: desktop
             conan_home: /tmp/conan-ci
-            relocated_conan_home: /tmp/conan-ci-relocated
 
     runs-on: ${{ matrix.runner }}
     env:
@@ -138,27 +132,26 @@ jobs:
           cat upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
 
-      - name: Set up relocated Conan home
+      # Change the Conan home to test ros-kilted relocation
+      - name: Relocate the Conan home
         shell: bash
-        env:
-          CONAN_HOME: ${{ matrix.relocated_conan_home }}
+        run: echo "CONAN_HOME=${CONAN_HOME}-2" >> "$GITHUB_ENV"
+
+      - name: Set up the relocated Conan home
+        shell: bash
         run: |
           conan profile detect
           conan remote add conan-ros "$ARTIFACTORY_URL"
           conan remote login conan-ros
 
       - name: Export recipes in this repo
-        env:
-          CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: |
           conan export recipes/orocos_kdl/all --version=1.5.1
           conan export recipes/python_orocos_kdl/all --version=1.5.1
           conan export recipes/ros-kilted/all --version=2026.06.17
 
-      - name: Run ros-kilted test_package from the relocated Conan home
+      - name: Run ros-kilted test_package against the uploaded binaries
         working-directory: ${{ github.workspace }}
-        env:
-          CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: >
           conan test recipes/ros-kilted/all/test_package ros-kilted/2026.06.17
           --profile:all=profiles/ros
@@ -169,7 +162,6 @@ jobs:
         shell: pwsh
         env:
           PYTHONPATH: ${{ github.workspace }}
-          CONAN_HOME: ${{ matrix.relocated_conan_home }}
           ROS_KILTED_VARIANT: ${{ matrix.variant }}
         run: python -u "${{ github.workspace }}/.github/run_ci_tests.py"
 
@@ -178,7 +170,6 @@ jobs:
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}
-          CONAN_HOME: ${{ matrix.relocated_conan_home }}
           ROS_KILTED_VARIANT: ${{ matrix.variant }}
         run: |
           # colcon-powershell misdetects itself as primary shell otherwise
@@ -189,8 +180,6 @@ jobs:
         if: always() && hashFiles('examples/pose_estimation/install_graph.json') != ''
         shell: bash
         working-directory: ${{ github.workspace }}/examples/pose_estimation
-        env:
-          CONAN_HOME: ${{ matrix.relocated_conan_home }}
         run: |
           conan list --graph=install_graph.json --graph-binaries=build --format=json > upload_pkglist.json
           cat upload_pkglist.json
