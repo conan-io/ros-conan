@@ -1,11 +1,15 @@
 import os
 import platform
 
-from test.examples_tools import run
+from test.examples_tools import VARIANT, run
+
+
+if VARIANT and VARIANT not in ("desktop", "desktop_full"):
+    print(f"Skipping consumer_desktop for ros-kilted variant '{VARIANT}'")
+    raise SystemExit(0)
 
 run(
-    "conan install --profile ../../profiles/ros --build=missing "
-    "-o ros-kilted/*:variant=desktop"
+    f"conan install --profile ../../profiles/ros --build=missing"
 )
 
 # rviz2 ignores QT_QPA_PLATFORM=offscreen on Windows and hangs instead of exiting.

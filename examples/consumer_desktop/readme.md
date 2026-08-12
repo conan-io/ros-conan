@@ -10,8 +10,7 @@ Qt/PyQt5 bindings) on top of the `core` packages, and runs it.
 From this directory:
 
 ```bash
-conan install . --profile=../../profiles/ros --build=missing -o ros-kilted/*:variant=desktop
-```
+conan install . --profile=../../profiles/ros --build=missing
 
 **Linux/macOS:**
 

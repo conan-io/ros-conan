@@ -1,9 +1,6 @@
 [requires]
 ros-kilted/2026.06.17
 
-[options]
-ros-kilted/*:variant=core
-
 [generators]
 CMakeToolchain
 CMakeDeps
