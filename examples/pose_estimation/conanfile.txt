@@ -1,0 +1,11 @@
+[requires]
+ros-kilted/2026.06.17
+tensorflow-lite/2.15.0
+opencv/4.12.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[layout]
+cmake_layout
