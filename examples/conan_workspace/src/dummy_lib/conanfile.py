@@ -13,10 +13,8 @@ class DummyLibConan(ConanFile):
         cmake_layout(self)
 
     def generate(self):
-        deps = CMakeDeps(self)
-        deps.generate()
-        tc = CMakeToolchain(self)
-        tc.generate()
+        CMakeDeps(self).generate()
+        CMakeToolchain(self).generate()
 
     def build(self):
         cmake = CMake(self)

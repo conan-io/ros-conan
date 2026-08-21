@@ -1,6 +1,5 @@
 from conan import ConanFile
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
-from conan.tools.env import VirtualRunEnv
 
 
 class ConsumerNodeConan(ConanFile):
@@ -18,11 +17,8 @@ class ConsumerNodeConan(ConanFile):
         self.requires("ros-kilted/2026.06.17")
 
     def generate(self):
-        deps = CMakeDeps(self)
-        deps.generate()
-        tc = CMakeToolchain(self)
-        tc.generate()
-        VirtualRunEnv(self).generate()
+        CMakeDeps(self).generate()
+        CMakeToolchain(self).generate()
 
     def build(self):
         cmake = CMake(self)
