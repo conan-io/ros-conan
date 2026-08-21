@@ -27,16 +27,12 @@ that make `colcon` discover ROS 2:
 
 - A C++17 compiler.
 - CMake ≥ 3.22 (the [profile](../../profiles/ros) tool-requires `cmake/3.29.3`).
-- `colcon` and `catkin_pkg` available on `PATH`:
+- A Conan remote that exposes `ros-kilted` — see the
+  [main README](../../README.md#quick-start).
 
-  ```bash
-  python -m pip install --upgrade colcon-common-extensions catkin_pkg
-  ```
-
-  On macOS, make sure the `python` that runs `colcon` is the same one that `ament_cmake`
-  picks up via `find_package(Python3)` — different Python versions on `PATH` cause
-  `catkin_pkg` to land in the wrong `site-packages`. The CI example pins this explicitly
-  with `-DPython3_EXECUTABLE=...`.
+`colcon` and `catkin_pkg` are shipped by `ros-kilted`. Activating
+`conanrosenv.{bat,sh}` puts them on `PATH` / `PYTHONPATH`; they do not need a
+separate system or pip install.
 
 ## Build & run
 
@@ -68,9 +64,9 @@ colcon build --event-handlers console_cohesion+
 ros2 run consumer_node consumer_node
 ```
 
-`ros2` itself is shipped by `ros-kilted` (`Scripts/ros2.exe` on Windows, `bin/ros2` on
-macOS/Linux) and `conanrosenv.{bat,sh}` puts it on `PATH` together with the
-`AMENT_PREFIX_PATH` / `PYTHONPATH` entries it needs. Sourcing the workspace's
+`ros2` and `colcon` are shipped by `ros-kilted` (`Scripts/` on Windows, `bin/` on
+macOS/Linux) and `conanrosenv.{bat,sh}` puts them on `PATH` together with the
+`AMENT_PREFIX_PATH` / `PYTHONPATH` entries they need. Sourcing the workspace's
 `install/setup.{bat,sh}` then prepends the freshly built `consumer_node` to that
 `AMENT_PREFIX_PATH`, so `ros2 run` (or any other `ros2` subcommand) resolves it like
 on a system-installed ROS 2.
@@ -93,5 +89,4 @@ Expected output (truncated):
 [INFO] [...] [colcon_consumer_node]: colcon consumer_node: rclcpp linked and node started.
 ```
 
-The exact CI invocation (with the Python-interpreter pinning mentioned above) lives in
-[`ci_test_example.py`](ci_test_example.py).
+The exact CI invocation lives in [`ci_test_example.py`](ci_test_example.py).
