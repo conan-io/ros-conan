@@ -39,6 +39,13 @@ jobs:
             variant: desktop
             conan_home: /tmp/conan-ci
 
+          - runner: ubuntu-26.04
+            variant: desktop
+            conan_home: /tmp/conan-ci
+            cc: gcc-15
+            cxx: g++-15
+
+    name: ${{ matrix.runner }} · ${{ matrix.variant }}${{ matrix.cc && format(' · {0}', matrix.cc) || '' }}
     runs-on: ${{ matrix.runner }}
     env:
       CONAN_HOME: ${{ matrix.conan_home }}
@@ -86,6 +93,19 @@ jobs:
       - name: Prepend Python to System PATH
         shell: bash
         run: echo "$(dirname '${{ steps.setup_python.outputs.python-path }}')" >> "$GITHUB_PATH"
+
+      # ubuntu-26.04 ships gcc-15; pin CC/CXX so `conan profile detect` records compiler.version=15
+      # rather than whatever `gcc` points at.
+      - name: Select GCC
+        if: ${{ matrix.cc }}
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y "${{ matrix.cc }}" "${{ matrix.cxx }}"
+          echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
+          echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+          "${{ matrix.cc }}" --version
+          "${{ matrix.cxx }}" --version
 
       # Service Fabric's msvcp140.dll breaks rcl_init(); Qt's build needs no sh.exe on PATH.
       - name: Clean up PATH (Windows)
