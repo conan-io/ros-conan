@@ -67,7 +67,7 @@ is in the workspace.
 
 - A C++17 compiler.
 - CMake ≥ 3.22 (the [profile](../../profiles/ros) tool-requires `cmake/3.29.3`).
-- Conan 2.12+ (`conan workspace build`; this repo is exercised with Conan 2.31).
+- Conan 2.31+ (For `conan workspace build`, as the feature has received recent improvements).
 - A Conan remote that exposes `ros-kilted` — see the
   [main README](../../README.md#quick-start).
 
