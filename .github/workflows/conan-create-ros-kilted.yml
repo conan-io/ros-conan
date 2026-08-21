@@ -58,11 +58,12 @@ jobs:
         if: runner.os == 'Linux' && matrix.variant == 'desktop'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: false
+          tool-cache: true
           android: true
           dotnet: true
           haskell: true
-          large-packages: false
+          large-packages: true
+          docker-images: true
           swap-storage: true
 
       - name: Enable long paths for git
@@ -145,6 +146,12 @@ jobs:
           -o ros-kilted/*:variant=${{ matrix.variant }}
           --format=json --out-file=install_graph.json
 
+      - name: Drop source and build folders from the Conan cache
+        shell: bash
+        run: |
+          conan cache clean --source --build --temp
+          df -h || true
+
       - name: Upload binaries built from source to Artifactory
         shell: bash
         run: |
@@ -152,10 +159,12 @@ jobs:
           cat upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
 
-      # Change the Conan home to test ros-kilted relocation
+      # Change the Conan home to test ros-kilted relocation (remove old one)
       - name: Relocate the Conan home
         shell: bash
-        run: echo "CONAN_HOME=${CONAN_HOME}-2" >> "$GITHUB_ENV"
+        run: |
+          rm -rf "$CONAN_HOME"
+          echo "CONAN_HOME=${CONAN_HOME}-2" >> "$GITHUB_ENV"
 
       - name: Set up the relocated Conan home
         shell: bash
