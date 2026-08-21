@@ -28,7 +28,7 @@ jobs:
             conan_home: /private/tmp/conan-ci
           - runner: ubuntu-latest
             variant: core
-            conan_home: /tmp/conan-ci
+            conan_home: /var/tmp/conan-ci
           - runner: windows-2022
             variant: desktop
             conan_home: C:/.c2
@@ -37,11 +37,10 @@ jobs:
             conan_home: /private/tmp/conan-ci
           - runner: ubuntu-latest
             variant: desktop
-            conan_home: /tmp/conan-ci
-
+            conan_home: /var/tmp/conan-ci
           - runner: ubuntu-26.04
             variant: desktop
-            conan_home: /tmp/conan-ci
+            conan_home: /var/tmp/conan-ci
             cc: gcc-15
             cxx: g++-15
 
@@ -58,12 +57,11 @@ jobs:
         if: runner.os == 'Linux' && matrix.variant == 'desktop'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          tool-cache: false
           android: true
           dotnet: true
           haskell: true
-          large-packages: true
-          docker-images: true
+          large-packages: false
           swap-storage: true
 
       - name: Enable long paths for git
