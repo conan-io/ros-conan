@@ -3,7 +3,7 @@
 [![Conan create ros-kilted](https://github.com/conan-io/ros-conan/actions/workflows/conan-create-ros-kilted.yml/badge.svg)](https://github.com/conan-io/ros-conan/actions/workflows/conan-create-ros-kilted.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Conan recipes for building [ROS 2](https://docs.ros.org/) from source. Pull ROS 2 and all its dependencies with a single `conan install`, no `rosdep`, `apt`, `brew` or `choco` required. Works with plain CMake projects and `colcon` workspaces, on Windows, macOS and Linux.
+Conan recipes for building [ROS 2](https://docs.ros.org/) from source. Pull ROS 2 and all its dependencies with a single `conan install`, no `rosdep`, `apt`, `brew` or `choco` required. Works with plain CMake projects, `colcon` workspaces, and [Conan workspaces](https://docs.conan.io/2/tutorial/developing_packages/workspaces.html), on Windows, macOS and Linux.
 
 ---
 
@@ -89,6 +89,7 @@ pinned to. The Conan version `YYYY.MM.DD` maps 1:1 to the rosdistro tag
 | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | [`consumer_cmake`](examples/consumer_cmake/readme.md)         | Pure-CMake consumer using `rclcpp` via `CMakeDeps`, no `colcon` needed.     |
 | [`consumer_colcon`](examples/consumer_colcon/readme.md)       | `colcon` workspace consuming the ROS runtime from Conan via `ROSEnv`.       |
+| [`conan_workspace`](examples/conan_workspace/readme.md)       | Same `src/` layout as `consumer_colcon`, orchestrated with a Conan workspace (CMake only). |
 | [`pose_estimation`](examples/pose_estimation/readme.md)       | `ros-kilted` + `opencv` + `tensorflow-lite` publishing a skeleton overlay.  |
 | [`consumer_desktop`](examples/consumer_desktop/readme.md)     | Installs the `desktop` variant and runs its GUI tooling (`rviz2`, `rqt`).  |
 
