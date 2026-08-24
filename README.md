@@ -74,7 +74,7 @@ conan install --requires=ros-kilted/2026.06.17 \
 > Eigen...) already live in [ConanCenter](https://conan.io/center/) and can be added next
 > to `ros-kilted` like any other Conan requirement.
 >
-> If you need extra ROS packages that are not in those variants,
+> **If you need extra ROS packages that are not in those variants**,
 > [open an issue](https://github.com/conan-io/ros-conan/issues) with what you are missing.
 > We can then look at the easiest way to add them. Thank you!
 
