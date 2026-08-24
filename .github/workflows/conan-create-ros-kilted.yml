@@ -23,22 +23,35 @@ jobs:
           - runner: windows-2022
             variant: core
             conan_home: C:/.c2
-          - runner: macos-latest
+          - runner: macos-15-intel
+            variant: core
+            conan_home: /private/tmp/conan-ci
+          - runner: macos-15
             variant: core
             conan_home: /private/tmp/conan-ci
           - runner: ubuntu-latest
             variant: core
-            conan_home: /tmp/conan-ci
+            conan_home: /var/tmp/conan-ci
+          - runner: ubuntu-24.04-arm
+            variant: core
+            conan_home: /var/tmp/conan-ci
           - runner: windows-2022
             variant: desktop
             conan_home: C:/.c2
-          - runner: macos-latest
+          - runner: macos-15-intel
+            variant: desktop
+            conan_home: /private/tmp/conan-ci
+          - runner: macos-15
             variant: desktop
             conan_home: /private/tmp/conan-ci
           - runner: ubuntu-latest
             variant: desktop
-            conan_home: /tmp/conan-ci
+            conan_home: /var/tmp/conan-ci
+          - runner: ubuntu-24.04-arm
+            variant: desktop
+            conan_home: /var/tmp/conan-ci
 
+    name: ${{ matrix.runner }} · ${{ matrix.variant }}
     runs-on: ${{ matrix.runner }}
     env:
       CONAN_HOME: ${{ matrix.conan_home }}
@@ -132,10 +145,12 @@ jobs:
           cat upload_pkglist.json
           conan upload --list=upload_pkglist.json -r conan-ros -c
 
-      # Change the Conan home to test ros-kilted relocation
+      # Change the Conan home to test ros-kilted relocation (remove old one)
       - name: Relocate the Conan home
         shell: bash
-        run: echo "CONAN_HOME=${CONAN_HOME}-2" >> "$GITHUB_ENV"
+        run: |
+          rm -rf "$CONAN_HOME"
+          echo "CONAN_HOME=${CONAN_HOME}-2" >> "$GITHUB_ENV"
 
       - name: Set up the relocated Conan home
         shell: bash
