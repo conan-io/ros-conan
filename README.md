@@ -106,6 +106,15 @@ pinned to. The Conan version `YYYY.MM.DD` maps 1:1 to the rosdistro tag
 | [`pose_estimation`](examples/pose_estimation/readme.md)       | `ros-kilted` + `opencv` + `tensorflow-lite` publishing a skeleton overlay.  |
 | [`consumer_desktop`](examples/consumer_desktop/readme.md)     | Installs the `desktop` variant and runs its GUI tooling (`rviz2`, `rqt`).  |
 
+## Tested platforms on CI
+
+| OS | Architecture | Variants |
+| -- | ------------ | -------- |
+| Windows Server 2022 | x86_64 | `core`, `desktop` |
+| Ubuntu 24.04 | x86_64 | `core`, `desktop` |
+| Ubuntu 24.04 | arm64 | `core` |
+| macOS 15 | x86_64, arm64 | `core`, `desktop` |
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
