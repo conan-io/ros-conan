@@ -47,9 +47,6 @@ jobs:
           - runner: ubuntu-latest
             variant: desktop
             conan_home: /var/tmp/conan-ci
-          - runner: ubuntu-24.04-arm
-            variant: desktop
-            conan_home: /var/tmp/conan-ci
 
     name: ${{ matrix.runner }} · ${{ matrix.variant }}
     runs-on: ${{ matrix.runner }}
