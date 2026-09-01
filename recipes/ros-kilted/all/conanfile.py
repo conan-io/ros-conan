@@ -344,7 +344,7 @@ class Ros2KiltedConan(ConanFile):
             rmdir(self, src_dir)
         mkdir(self, src_dir)
         vcs_exe = os.path.join(boot.bin_path, "vcs")
-        self.run(f'"{vcs_exe}" import --input "{repos_path}" src',
+        self.run(f'"{vcs_exe}" import --input "{repos_path}" src --retry 5 --workers 5',
                  cwd=self.source_folder)
 
         apply_conandata_patches(self)
