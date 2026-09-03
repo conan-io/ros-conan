@@ -1,6 +1,7 @@
 build/
 install/
 log/
+conanfile.txt
 colcon_build/
 colcon_install/
 colcon_log/

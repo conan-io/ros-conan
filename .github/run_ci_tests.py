@@ -65,6 +65,10 @@ def find_affected_directories(base_ref) -> list:
         if not file_path:
             continue
 
+        posix_path = file_path.replace("\\", "/")
+        if posix_path.startswith("extensions/") or posix_path.startswith("test/"):
+            affected_dirs.add("test")
+
         # Get directory of changed file
         dir_path = Path(file_path).parent
 

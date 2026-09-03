@@ -2,7 +2,8 @@ import platform
 
 from test.examples_tools import VARIANT_ARGS, run
 
-run(f"conan install --profile ../../profiles/ros {VARIANT_ARGS} --build=missing")
+run("conan config install ../.. -sf extensions -tf extensions")
+run(f"conan ros:install {VARIANT_ARGS} --build=missing")
 
 if platform.system() == "Windows":
     run(
